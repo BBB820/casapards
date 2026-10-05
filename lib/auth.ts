@@ -1,17 +1,25 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 export type Role = "family" | "admin";
 const COOKIE = "casapards_session";
 const MAX_AGE = 60 * 60 * 24 * 180;
 
+// Used only when neither SESSION_SECRET nor any passcode is set: sessions
+// then last until the server restarts, which is harmless with no gate.
+const processSecret = randomBytes(32).toString("hex");
+
+/**
+ * SESSION_SECRET signs cookies. If it's missing, derive one from the
+ * passcodes rather than crash: only someone who knows them could forge a
+ * cookie, and changing a passcode signs everyone out.
+ */
 function secret(): string {
   const s = process.env.SESSION_SECRET;
   if (s) return s;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("SESSION_SECRET must be set in production.");
-  }
-  return "dev-only-secret";
+  const codes = `${process.env.ADMIN_PASSCODE ?? ""}\n${process.env.FAMILY_PASSCODE ?? ""}`;
+  if (codes.trim()) return createHash("sha256").update("casapards-session\n" + codes).digest("hex");
+  return processSecret;
 }
 
 const sign = (role: Role) => createHmac("sha256", secret()).update(role).digest("hex");
