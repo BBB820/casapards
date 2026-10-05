@@ -18,14 +18,15 @@ leave, and reserve. Two stays can never overlap.
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
 - **Family passcode.** Everyone shares one passcode to see the calendar and book.
-- **Edit or cancel with your PIN.** When booking you choose a 4-digit PIN.
-  The phone you booked on remembers it, so your stays show **Edit** and
-  **Cancel**. On another phone, tap "Have the PIN?" on your stay and enter
-  it. After 5 wrong PINs a stay locks for 15 minutes. Forgot it? The admin
-  can edit or cancel any stay. Edits follow the same rules as new bookings
-  (no overlaps), and a stay that has already started can still change its
-  check-out. (Bookings made before PINs keep their 6-character codes.)
-- **Admin.** Sign in with the admin passcode to edit or cancel any stay and to
+- **Edit or delete with your PIN.** When booking you choose a 4-digit PIN.
+  To change or remove a stay later, tap **Edit or delete** on it and enter
+  the PIN; then **Edit** and **Delete** appear. The PIN is asked for on every
+  visit (phones don't remember it). After 5 wrong PINs a stay locks for 15
+  minutes. Forgot it? The admin can edit or delete any stay. Edits follow the
+  same rules as new bookings (no overlaps), and a stay that has already
+  started can still change its check-out. (Bookings made before PINs keep
+  their 6-character codes.)
+- **Admin.** Sign in with the admin passcode to edit or delete any stay and to
   block whole days (repairs, owners' use). Blocked days show as striped.
 
 Upgrading from the first version is automatic: existing bookings get the
@@ -93,7 +94,7 @@ Back up by copying the `.db` file while the app is stopped, or with
 ```
 app/                 pages and API routes (Next.js App Router)
   api/bookings       list and create bookings
-  api/bookings/[id]  edit (PATCH) or cancel (DELETE) a booking
+  api/bookings/[id]  edit (PATCH) or delete (DELETE) a booking; /verify checks a PIN
   api/session        passcode sign-in and sign-out
 components/          calendar, reserve form, stays list, login form
 lib/dates.ts         pure date rules shared by server, UI and tests

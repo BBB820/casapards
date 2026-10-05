@@ -249,6 +249,8 @@ label { font-weight: 700; font-size: 0.88rem; }
 }
 .pill-btn:hover:not(:disabled) { background: var(--pine-soft); border-color: transparent; }
 .spread { justify-content: space-between; }
+.danger-btn { color: var(--danger); }
+.pin-step { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: var(--sel-soft); }
 .stay.editing { background: var(--sel-soft); border-radius: 12px; padding-left: 10px; padding-right: 10px; }
 .edit-card { border-color: var(--sel-edge); box-shadow: 0 0 0 3px var(--sel), var(--shadow); }
 input:disabled { opacity: 0.6; }
