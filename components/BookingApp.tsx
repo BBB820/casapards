@@ -451,10 +451,10 @@ function ReserveForm(props: {
     setError("");
     if (mode === "stay") {
       if (inTime < earliestIn) {
-        return setError(`${firstInfo.outBy?.name ?? "The previous guests"} check out at ${timeText(earliestIn)}. Check in at that time or later.`);
+        return setError(`${firstInfo.outBy?.name ?? "The previous stay"} checks out at ${timeText(earliestIn)}. Check in at that time or later.`);
       }
       if (outTime > latestOut) {
-        return setError(`${lastInfo.inFrom?.name ?? "The next guests"} check in at ${timeText(lastInfo.freeUntil)}. Check out by then.`);
+        return setError(`${lastInfo.inFrom?.name ?? "The next stay"} checks in at ${timeText(lastInfo.freeUntil)}. Check out by then.`);
       }
       if (sameDay && outTime <= inTime) return setError("Check-out has to be after check-in.");
     }
