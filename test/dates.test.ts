@@ -45,3 +45,11 @@ test("monthGrid starts on Monday and pads full weeks", () => {
   assert.ok(weeks.every((w) => w.length === 7));
   assert.equal(weeks.flat().filter(Boolean).length, 31);
 });
+
+test("resolveTimeZone forgives typos and rejects nonsense", async () => {
+  const { resolveTimeZone } = await import("../lib/house.ts");
+  assert.deepEqual(resolveTimeZone(" America/Los Angeles "), { zone: "America/Los_Angeles", valid: true });
+  assert.deepEqual(resolveTimeZone("Europe/Madrid"), { zone: "Europe/Madrid", valid: true });
+  assert.deepEqual(resolveTimeZone("Pacific"), { zone: undefined, valid: false });
+  assert.deepEqual(resolveTimeZone(undefined), { zone: undefined, valid: true });
+});

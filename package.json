@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning next start -H 0.0.0.0",
     "test": "node --test --disable-warning=ExperimentalWarning test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
