@@ -1,0 +1,57 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
+
+export type Role = "family" | "admin";
+const COOKIE = "casapards_session";
+const MAX_AGE = 60 * 60 * 24 * 180;
+
+function secret(): string {
+  const s = process.env.SESSION_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set in production.");
+  }
+  return "dev-only-secret";
+}
+
+const sign = (role: Role) => createHmac("sha256", secret()).update(role).digest("hex");
+
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+export const familyGateOn = () => Boolean(process.env.FAMILY_PASSCODE);
+
+/** Which role a passcode unlocks, if any. */
+export function roleForPasscode(code: string): Role | null {
+  const admin = process.env.ADMIN_PASSCODE;
+  const family = process.env.FAMILY_PASSCODE;
+  if (admin && safeEqual(code, admin)) return "admin";
+  if (family && safeEqual(code, family)) return "family";
+  return null;
+}
+
+export async function currentRole(): Promise<Role | null> {
+  const value = (await cookies()).get(COOKIE)?.value ?? "";
+  const [role, sig] = value.split(".");
+  if ((role === "family" || role === "admin") && sig && safeEqual(sig, sign(role))) {
+    return role;
+  }
+  return familyGateOn() ? null : "family";
+}
+
+export async function startSession(role: Role): Promise<void> {
+  (await cookies()).set(COOKIE, `${role}.${sign(role)}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: MAX_AGE,
+    path: "/",
+  });
+}
+
+export async function endSession(): Promise<void> {
+  (await cookies()).delete(COOKIE);
+}
