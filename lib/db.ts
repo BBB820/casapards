@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const SCHEMA = `
   PRAGMA foreign_keys = ON;
@@ -39,9 +39,18 @@ export function openDatabase(path: string): DatabaseSync {
 
 const globalForDb = globalThis as unknown as { casapardsDb?: DatabaseSync };
 
+/**
+ * DATABASE_PATH wins. Otherwise use the Railway volume when one is attached
+ * (Railway sets RAILWAY_VOLUME_MOUNT_PATH), so bookings survive redeploys
+ * even if DATABASE_PATH was never set.
+ */
+export function databasePath(env: Record<string, string | undefined> = process.env): string {
+  if (env.DATABASE_PATH) return env.DATABASE_PATH;
+  if (env.RAILWAY_VOLUME_MOUNT_PATH) return join(env.RAILWAY_VOLUME_MOUNT_PATH, "casapards.db");
+  return "data/casapards.db";
+}
+
 export function getDb(): DatabaseSync {
-  globalForDb.casapardsDb ??= openDatabase(
-    process.env.DATABASE_PATH ?? "data/casapards.db",
-  );
+  globalForDb.casapardsDb ??= openDatabase(databasePath());
   return globalForDb.casapardsDb;
 }

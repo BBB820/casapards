@@ -39,8 +39,8 @@ npm run typecheck
 |-------------------|----------------------------------------------------------------------|
 | `FAMILY_PASSCODE` | Passcode to see and book. Empty means anyone with the link can book.  |
 | `ADMIN_PASSCODE`  | Passcode for admin powers. Required.                                 |
-| `SESSION_SECRET`  | Random string that signs login cookies. Required in production.      |
-| `DATABASE_PATH`   | SQLite file location. Default `data/casapards.db`.                   |
+| `SESSION_SECRET`  | Random string that signs login cookies. Falls back to the passcodes. |
+| `DATABASE_PATH`   | SQLite file. Default: the Railway volume, else `data/casapards.db`.  |
 | `HOUSE_TIMEZONE`  | IANA time zone of the house, used for "today", e.g. `Europe/Madrid`. |
 | `HOUSE_NAME`      | Name in the header. Default `Casa Pards`.                            |
 
@@ -56,9 +56,10 @@ Good fits:
   1. New Project → Deploy from GitHub repo → `casapards`.
   2. On the service, add a **Volume** mounted at `/data`. The deploy waits
      for it, so bookings survive redeploys.
-  3. Under Variables set `DATABASE_PATH=/data/casapards.db`,
-     `FAMILY_PASSCODE`, `ADMIN_PASSCODE`, `SESSION_SECRET`
-     (`openssl rand -hex 32`) and `HOUSE_TIMEZONE`.
+  3. Under Variables set `FAMILY_PASSCODE`, `ADMIN_PASSCODE` and
+     `HOUSE_TIMEZONE`. The database goes on the volume automatically.
+     `SESSION_SECRET` (`openssl rand -hex 32`) is recommended; without it
+     the login cookies are signed with a key derived from the passcodes.
   4. Settings → Networking → Generate Domain. Keep it at one replica
      (SQLite is a single file).
 - **Render**: create a web service from this repo with a persistent disk

@@ -58,3 +58,10 @@ test("cancelling needs the right code unless you are the admin", () => {
   assert.equal(cancelBooking(db, again.booking.id, { admin: true }), "cancelled");
   assert.equal(cancelBooking(db, "missing", { admin: true }), "not_found");
 });
+
+test("database path prefers DATABASE_PATH, then the Railway volume", async () => {
+  const { databasePath } = await import("../lib/db.ts");
+  assert.equal(databasePath({ DATABASE_PATH: "/x/a.db", RAILWAY_VOLUME_MOUNT_PATH: "/data" }), "/x/a.db");
+  assert.equal(databasePath({ RAILWAY_VOLUME_MOUNT_PATH: "/data" }), "/data/casapards.db");
+  assert.equal(databasePath({}), "data/casapards.db");
+});
