@@ -18,10 +18,13 @@ leave, and reserve. Two stays can never overlap.
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
 - **Family passcode.** Everyone shares one passcode to see the calendar and book.
-- **Cancel codes.** After booking you get a 6-character code. The phone you
-  booked on remembers it; from any other device you can cancel with the code.
-- **Admin.** Sign in with the admin passcode to cancel any stay and to block
-  whole days (repairs, owners' use). Blocked days show as striped.
+- **Edit or cancel with your code.** After booking you get a 6-character code.
+  The phone you booked on remembers it, so your stays show **Edit** and
+  **Cancel**. On another device, tap "Have the code?" on your stay and enter
+  it. Edits follow the same rules as new bookings (no overlaps), and a stay
+  that has already started can still change its check-out.
+- **Admin.** Sign in with the admin passcode to edit or cancel any stay and to
+  block whole days (repairs, owners' use). Blocked days show as striped.
 
 Upgrading from the first version is automatic: existing bookings get the
 default times (3:00 PM in, 11:00 AM out) the first time the app starts.
@@ -88,7 +91,7 @@ Back up by copying the `.db` file while the app is stopped, or with
 ```
 app/                 pages and API routes (Next.js App Router)
   api/bookings       list and create bookings
-  api/bookings/[id]  cancel a booking
+  api/bookings/[id]  edit (PATCH) or cancel (DELETE) a booking
   api/session        passcode sign-in and sign-out
 components/          calendar, reserve form, stays list, login form
 lib/dates.ts         pure date rules shared by server, UI and tests

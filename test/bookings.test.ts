@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { databasePath, openDatabase } from "../lib/db.ts";
-import { cancelBooking, createBooking, listBookings } from "../lib/bookings.ts";
+import { cancelBooking, createBooking, listBookings, updateBooking } from "../lib/bookings.ts";
 
 const today = "2026-10-05";
 const stay = (checkIn: string, checkOut: string, name = "Lopez family", times: { checkInTime?: string; checkOutTime?: string } = {}) => ({
@@ -96,4 +96,43 @@ test("database path prefers DATABASE_PATH, then the Railway volume", () => {
   assert.equal(databasePath({ DATABASE_PATH: "/x/a.db", RAILWAY_VOLUME_MOUNT_PATH: "/data" }), "/x/a.db");
   assert.equal(databasePath({ RAILWAY_VOLUME_MOUNT_PATH: "/data" }), "/data/casapards.db");
   assert.equal(databasePath({}), "data/casapards.db");
+});
+
+test("editing a stay: owner with code can move it, even over its own old dates", () => {
+  const db = openDatabase(":memory:");
+  const r = createBooking(db, stay("2026-10-08", "2026-10-10"), today);
+  assert.ok(r.ok);
+  const moved = updateBooking(db, r.booking.id, { checkIn: "2026-10-09", checkOut: "2026-10-12", checkOutTime: "13:00", name: "Lopez family" , guests: 5 }, { code: r.cancelCode! }, today);
+  assert.ok(moved.ok);
+  assert.deepEqual(
+    [moved.booking.checkIn, moved.booking.checkOut, moved.booking.checkOutTime, moved.booking.guests],
+    ["2026-10-09", "2026-10-12", "13:00", 5],
+  );
+  assert.equal(listBookings(db, today)[0].checkOut, "2026-10-12", "saved");
+});
+
+test("editing can't overlap someone else, needs the right code, and keeps fields not sent", () => {
+  const db = openDatabase(":memory:");
+  const a = createBooking(db, stay("2026-10-08", "2026-10-10"), today);
+  const b = createBooking(db, stay("2026-10-12", "2026-10-14", "Pardo family", {}), today);
+  assert.ok(a.ok && b.ok);
+  const clash = updateBooking(db, a.booking.id, { checkOut: "2026-10-13" }, { code: a.cancelCode! }, today);
+  assert.equal(!clash.ok && clash.error, "dates_taken");
+  assert.equal(!clash.ok && clash.clash?.name, "Pardo family");
+  assert.equal(updateBooking(db, a.booking.id, { note: "x" }, { code: "WRONG1" }, today).ok, false);
+  const noted = updateBooking(db, a.booking.id, { note: "Bringing the dog" }, { admin: true }, today);
+  assert.ok(noted.ok);
+  assert.equal(noted.booking.checkIn, "2026-10-08");
+  assert.equal(noted.booking.note, "Bringing the dog");
+  assert.equal(updateBooking(db, "missing", {}, { admin: true }, today).ok, false);
+});
+
+test("a stay that already started can still change its check-out", () => {
+  const db = openDatabase(":memory:");
+  const r = createBooking(db, stay("2026-10-04", "2026-10-07"), "2026-10-03");
+  assert.ok(r.ok);
+  const later = updateBooking(db, r.booking.id, { checkOut: "2026-10-08" }, { code: r.cancelCode! }, today);
+  assert.ok(later.ok);
+  const moveStart = updateBooking(db, r.booking.id, { checkIn: "2026-10-03" }, { code: r.cancelCode! }, today);
+  assert.equal(!moveStart.ok && moveStart.error, "in_the_past");
 });
