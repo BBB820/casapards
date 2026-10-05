@@ -29,8 +29,10 @@ leave, and reserve. Two stays can never overlap.
   same rules as new bookings (no overlaps), and a stay that has already
   started can still change its check-out. (Bookings made before PINs keep
   their 6-character codes.)
-- **Admin.** Sign in with the admin passcode to edit or delete any stay and to
-  block whole days (repairs, owners' use). Blocked days show as striped.
+- **Admin.** Go to `/login` on your site and enter the admin passcode (in the
+  same box as the family passcode) to edit or delete any stay without its PIN
+  and to block whole days (repairs, owners' use). Blocked days show as
+  striped. There's no admin link on the page, so the family never sees it.
 
 Upgrading from the first version is automatic: existing bookings get the
 default times (3:00 PM in, 11:00 AM out) the first time the app starts.

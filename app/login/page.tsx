@@ -6,10 +6,7 @@ export default function LoginPage() {
     <main className="shell login">
       <p className="eyebrow">Family house</p>
       <h1>{HOUSE_NAME}</h1>
-      <p className="muted">
-        Enter the family passcode to see which nights are free. The admin passcode also
-        unlocks cancelling any stay and blocking dates.
-      </p>
+      <p className="muted">Enter the family passcode to see which days are free.</p>
       <LoginForm />
     </main>
   );

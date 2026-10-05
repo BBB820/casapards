@@ -290,7 +290,6 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
         </div>
         <nav className="topnav">
           {isAdmin && <span className="pill admin">Admin</span>}
-          {!isAdmin && <a href="/login">Admin sign in</a>}
           {canSignOut && <button className="link" onClick={signOut}>Sign out</button>}
         </nav>
       </header>
