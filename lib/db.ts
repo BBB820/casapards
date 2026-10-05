@@ -51,6 +51,14 @@ export function databasePath(env: Record<string, string | undefined> = process.e
 }
 
 export function getDb(): DatabaseSync {
-  globalForDb.casapardsDb ??= openDatabase(databasePath());
+  if (!globalForDb.casapardsDb) {
+    const path = databasePath();
+    try {
+      globalForDb.casapardsDb = openDatabase(path);
+    } catch (err) {
+      console.error(`Couldn't open the database at ${path}. Is the volume mounted and writable?`, err);
+      throw err;
+    }
+  }
   return globalForDb.casapardsDb;
 }

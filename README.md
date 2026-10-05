@@ -62,6 +62,8 @@ Good fits:
      the login cookies are signed with a key derived from the passcodes.
   4. Settings → Networking → Generate Domain. Keep it at one replica
      (SQLite is a single file).
+  5. Open `https://<your-domain>/api/health`. It shows `"ok": true` when the
+     database works, and lists anything misconfigured under `problems`.
 - **Render**: create a web service from this repo with a persistent disk
   mounted at `/data`, the same variables, build command `npm run build` and
   start command `npm start`.

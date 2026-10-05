@@ -43,6 +43,10 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [hint, setHint] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null } | null>(null);
+  // Dates and month names depend on the browser's locale and time zone, so
+  // render the calendar only in the browser to avoid hydration mismatches.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +84,20 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     for (const b of bookings) for (const n of nightsOf(b.checkIn, b.checkOut)) map.set(n, b);
     return map;
   }, [bookings]);
+
+  if (!mounted) {
+    return (
+      <main className="shell">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Family house · reservations</p>
+            <h1>{houseName}</h1>
+          </div>
+        </header>
+        <p className="muted">Loading the calendar…</p>
+      </main>
+    );
+  }
 
   const lastBookable = addDays(today, MAX_DAYS_AHEAD);
   const isFreeNight = (d: string) => d >= today && d <= lastBookable && !byNight.has(d);

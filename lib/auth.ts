@@ -30,12 +30,14 @@ function safeEqual(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-export const familyGateOn = () => Boolean(process.env.FAMILY_PASSCODE);
+export const familyGateOn = () => Boolean(process.env.FAMILY_PASSCODE?.trim());
 
 /** Which role a passcode unlocks, if any. */
 export function roleForPasscode(code: string): Role | null {
-  const admin = process.env.ADMIN_PASSCODE;
-  const family = process.env.FAMILY_PASSCODE;
+  // Trim so a stray space or newline pasted into the host's settings
+  // doesn't make the right passcode fail.
+  const admin = process.env.ADMIN_PASSCODE?.trim();
+  const family = process.env.FAMILY_PASSCODE?.trim();
   if (admin && safeEqual(code, admin)) return "admin";
   if (family && safeEqual(code, family)) return "family";
   return null;
