@@ -99,6 +99,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     };
   }, [load]);
 
+  const colors = useMemo(() => colorMap(bookings), [bookings]);
   const infoCache = useMemo(() => new Map<string, Info>(), [bookings]);
   const info = useCallback((day: string): Info => {
     let hit = infoCache.get(day);
@@ -206,10 +207,8 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   }
 
   const [ty, tm] = today.split("-").map(Number);
-  const months = [0, 1].map((i) => {
-    const d = new Date(Date.UTC(ty, tm - 1 + monthOffset + i, 1));
-    return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
-  });
+  const shown = new Date(Date.UTC(ty, tm - 1 + monthOffset, 1));
+  const monthTitle = shown.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
   const maxOffset = 12;
   const upcoming = bookings.filter((b) => b.checkOut >= today);
 
@@ -238,6 +237,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
       <section className="layout">
         <div className="calendar card">
           <div className="cal-head">
+            <h2 className="month-title">{monthTitle}</h2>
             <div className="cal-nav">
               <button
                 className="icon"
@@ -253,33 +253,33 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
                 disabled={monthOffset >= maxOffset}
               >›</button>
             </div>
+          </div>
+          <div className="instruction-row">
             <p className="instruction" aria-live="polite">{instruction}</p>
             {first && <button className="link small" onClick={clearSelection}>Clear</button>}
           </div>
 
-          <div className={`months${loaded ? "" : " loading"}`} onMouseLeave={() => setHover(null)}>
-            {months.map(({ year, month }) => (
-              <Month
-                key={`${year}-${month}`}
-                year={year}
-                month={month}
-                today={today}
-                lastBookable={lastBookable}
-                info={info}
-                first={first}
-                last={last ?? previewEnd}
-                preview={!last && Boolean(previewEnd)}
-                onPick={pick}
-                onHover={setHover}
-              />
-            ))}
+          <div className={loaded ? "" : "loading"} onMouseLeave={() => setHover(null)}>
+            <Month
+              year={shown.getUTCFullYear()}
+              month={shown.getUTCMonth()}
+              today={today}
+              lastBookable={lastBookable}
+              bookings={bookings}
+              colors={colors}
+              info={info}
+              first={first}
+              last={last ?? previewEnd}
+              preview={!last && Boolean(previewEnd)}
+              onPick={pick}
+              onHover={setHover}
+            />
           </div>
 
           <ul className="legend small">
             <li><span className="swatch free" /> Free</li>
-            <li><span className="swatch booked" /> Booked</li>
-            <li><span className="swatch out" /> Free after check-out</li>
-            <li><span className="swatch in" /> Free until check-in</li>
+            <li><span className="swatch bar" /> Booked</li>
+            <li><span className="swatch half" /> Check-out / check-in day (free part shown)</li>
             <li><span className="swatch blocked" /> Unavailable</li>
             <li><span className="swatch picked" /> Your dates</li>
           </ul>
@@ -308,7 +308,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               <p className="muted">
                 {first
                   ? `Check-in: ${longDate(first)}. Now tap your check-out day.`
-                  : `Tap your check-in day, then your check-out day. Check-in is from ${timeText(DEFAULT_CHECK_IN)} and check-out by ${timeText(DEFAULT_CHECK_OUT)} unless you choose other times. Half-filled days show when someone leaves or arrives.`}
+                  : `Tap your check-in day, then your check-out day. Check-in is from ${timeText(DEFAULT_CHECK_IN)} and check-out by ${timeText(DEFAULT_CHECK_OUT)} unless you choose other times. Half bars show the day someone leaves or arrives, with the time.`}
               </p>
               {first && (
                 <div className="row">
@@ -328,7 +328,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
             ) : (
               <ul className="stays">
                 {upcoming.map((b) => (
-                  <StayRow key={b.id} booking={b} mine={Boolean(codes[b.id])} isAdmin={isAdmin} onCancel={cancel} />
+                  <StayRow key={b.id} booking={b} color={colors.get(b.id) ?? "c1"} mine={Boolean(codes[b.id])} isAdmin={isAdmin} onCancel={cancel} />
                 ))}
               </ul>
             )}
@@ -339,11 +339,52 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   );
 }
 
+/**
+ * Colour per booking (c1–c5), handed out in date order so stays next to
+ * each other always differ. Blocked dates are always striped grey.
+ */
+function colorMap(bookings: Booking[]): Map<string, string> {
+  const map = new Map<string, string>();
+  let i = 0;
+  for (const b of [...bookings].sort((x, y) => (x.checkIn + x.checkInTime < y.checkIn + y.checkInTime ? -1 : 1))) {
+    map.set(b.id, b.kind === "blocked" ? "blocked" : `c${(i++ % 5) + 1}`);
+  }
+  return map;
+}
+
+type Segment = { booking: Booking; part: "full" | "out" | "in" | "visit"; halves: number };
+
+/**
+ * The bar pieces drawn in one day cell. `halves` is how far the name may run,
+ * in half-cells (0 = no name here): names go on a stay's first day, and again
+ * at the start of each week row or month it continues into. Check-in bars
+ * start mid-cell and check-out bars end mid-cell, hence half-cells.
+ */
+function segmentsFor(day: string, bookings: Booking[], weekday: number, monthStart: string, monthEnd: string): Segment[] {
+  const segs: Segment[] = [];
+  for (const b of bookings) {
+    if (day < b.checkIn || day > b.checkOut) continue;
+    const part = b.checkIn === b.checkOut ? "visit" : day === b.checkIn ? "in" : day === b.checkOut ? "out" : "full";
+    const startsHere = part === "in" || part === "visit" || ((weekday === 0 || day === monthStart) && (part === "full" || part === "out"));
+    let halves = 0;
+    if (part === "visit") halves = 2;
+    else if (startsHere) {
+      const lastCell = [b.checkOut, addDays(day, 6 - weekday), monthEnd].sort()[0];
+      halves = (daysBetween(day, lastCell) + 1) * 2 - (part === "in" ? 1 : 0) - (lastCell === b.checkOut ? 1 : 0);
+    }
+    segs.push({ booking: b, part, halves });
+  }
+  // Outgoing stay first (left half), then incoming (right half).
+  return segs.sort((a, b) => (a.part === "out" ? -1 : b.part === "out" ? 1 : 0));
+}
+
 function Month(props: {
   year: number;
   month: number;
   today: string;
   lastBookable: string;
+  bookings: Booking[];
+  colors: Map<string, string>;
   info: (day: string) => Info;
   first: string | null;
   last: string | null;
@@ -351,64 +392,80 @@ function Month(props: {
   onPick: (day: string) => void;
   onHover: (day: string | null) => void;
 }) {
-  const { year, month, today, lastBookable, info, first, last, preview, onPick, onHover } = props;
-  const title = new Date(Date.UTC(year, month, 1)).toLocaleDateString(undefined, {
-    month: "long", year: "numeric", timeZone: "UTC",
-  });
+  const { year, month, today, lastBookable, bookings, colors, info, first, last, preview, onPick, onHover } = props;
+  const weeks = monthGrid(year, month);
+  const days = weeks.flat().filter(Boolean) as string[];
+  const monthStart = days[0];
+  const monthEnd = days[days.length - 1];
+  const end = last ?? first;
   return (
-    <div className="month">
-      <h3>{title}</h3>
-      <div className="grid" role="grid" aria-label={title}>
-        {WEEKDAYS.map((w) => <div key={w} className="dow" role="columnheader">{w}</div>)}
-        {monthGrid(year, month).flat().map((day, i) => {
-          if (!day) return <div key={`pad-${i}`} className="day pad" />;
-          const d = info(day);
-          const out = day < today || day > lastBookable;
-          const end = last ?? first;
-          const inRange = Boolean(first && end && day >= first && day <= end);
-          const cls = [
-            "day",
-            out ? "past" : d.status,
-            !out && d.status === "turnover" && !d.open ? "closed" : "",
-            inRange ? (preview ? "preview" : "picked") : "",
-            inRange && day === first ? "start" : "",
-            inRange && day === end ? "end" : "",
-            day === today ? "today" : "",
-          ].join(" ");
-          const who = d.full ?? d.outBy ?? d.inFrom;
-          const describe =
-            out ? "not bookable"
-            : d.status === "blocked" ? `unavailable${who ? `: ${who.name}` : ""}`
-            : d.status === "booked" ? `booked by ${who?.name ?? "someone"}`
-            : d.status === "turnover"
-              ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}, ${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}${d.open ? "" : "; no free time"}`
-            : d.status === "out" ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}; free after`
-            : d.status === "in" ? `${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}; free before`
-            : "free";
-          const note =
-            out ? null
-            : d.status === "out" ? `out ${shortTime(d.freeFrom)}`
-            : d.status === "in" ? `in ${shortTime(d.freeUntil)}`
-            : d.status === "turnover" ? (d.open ? `${shortTime(d.freeFrom)}–${shortTime(d.freeUntil)}` : `⇄${shortTime(d.freeFrom)}`)
-            : null;
-          return (
-            <button
-              key={day}
-              className={cls}
-              onClick={() => onPick(day)}
-              onMouseEnter={() => onHover(day)}
-              onFocus={() => onHover(day)}
-              disabled={out}
-              aria-label={`${fmt(day, { dateStyle: "full" })}, ${describe}`}
-              aria-pressed={inRange}
-              title={out ? undefined : describe}
-            >
-              <span className="num">{Number(day.slice(8))}</span>
-              {note && <span className="cell-note">{note}</span>}
-            </button>
-          );
-        })}
-      </div>
+    <div className="month-grid" role="grid" aria-label={fmt(monthStart, { month: "long", year: "numeric" })}>
+      {WEEKDAYS.map((w) => <div key={w} className="dow" role="columnheader">{w}</div>)}
+      {weeks.flat().map((day, i) => {
+        if (!day) return <div key={`pad-${i}`} className="cell pad" />;
+        const weekday = i % 7;
+        const d = info(day);
+        const out = day < today || day > lastBookable;
+        const inRange = Boolean(first && end && day >= first && day <= end);
+        const segs = segmentsFor(day, bookings, weekday, monthStart, monthEnd);
+        const who = d.full ?? d.outBy ?? d.inFrom;
+        const describe =
+          out ? "not bookable"
+          : d.status === "blocked" ? `unavailable${who ? `: ${who.name}` : ""}`
+          : d.status === "booked" ? `booked by ${who?.name ?? "someone"}`
+          : d.status === "turnover"
+            ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}, ${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}${d.open ? "" : "; no free time"}`
+          : d.status === "out" ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}; free after`
+          : d.status === "in" ? `${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}; free before`
+          : "free";
+        const cls = [
+          "cell",
+          out ? "past" : d.open ? "open" : "closed",
+          inRange ? (preview ? "preview" : "picked") : "",
+          inRange && day === first ? "sel-start" : "",
+          inRange && day === end ? "sel-end" : "",
+          day === today ? "today" : "",
+        ].join(" ");
+        return (
+          <button
+            key={day}
+            className={cls}
+            onClick={() => onPick(day)}
+            onMouseEnter={() => onHover(day)}
+            onFocus={() => onHover(day)}
+            disabled={out}
+            aria-label={`${fmt(day, { dateStyle: "full" })}, ${describe}`}
+            aria-pressed={inRange}
+            title={out ? undefined : describe}
+          >
+            <span className="num">{Number(day.slice(8))}</span>
+            <span className="lane">
+              {segs.map((sg) => <span key={sg.booking.id} className={`seg ${sg.part} ${colors.get(sg.booking.id)}`} />)}
+              {segs.filter((sg) => sg.halves > 0).map((sg) => (
+                <span
+                  key={`label-${sg.booking.id}`}
+                  className={`seg-label ${sg.part} ${colors.get(sg.booking.id)}`}
+                  style={{ "--halves": sg.halves } as React.CSSProperties}
+                >
+                  {sg.booking.name}
+                </span>
+              ))}
+            </span>
+            <span className="times-row">
+              {!out && d.status !== "blocked" && (
+                d.outBy && d.outBy === d.inFrom ? (
+                  <span>{shortTime(d.outBy.checkInTime)}–{shortTime(d.outBy.checkOutTime)}</span>
+                ) : (
+                  <>
+                    {d.outBy && <span><span className="word">out </span>{shortTime(d.freeFrom)}</span>}
+                    {d.inFrom && <span className="in-time"><span className="word">in </span>{shortTime(d.freeUntil)}</span>}
+                  </>
+                )
+              )}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -568,8 +625,9 @@ function Confirmation({ booking, code, onDone }: { booking: Booking; code: strin
   );
 }
 
-function StayRow({ booking: b, mine, isAdmin, onCancel }: {
+function StayRow({ booking: b, color, mine, isAdmin, onCancel }: {
   booking: Booking;
+  color: string;
   mine: boolean;
   isAdmin: boolean;
   onCancel: (b: Booking, code?: string) => Promise<string | null>;
@@ -586,8 +644,9 @@ function StayRow({ booking: b, mine, isAdmin, onCancel }: {
   }
 
   return (
-    <li className={`stay ${b.kind}`}>
+    <li className="stay">
       <div className="stay-main">
+        <span className={`dot ${color}`} aria-hidden="true" />
         <strong>{b.name}</strong>
         {mine && <span className="pill">Yours</span>}
         <span className="muted small">
