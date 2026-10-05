@@ -6,17 +6,25 @@ leave, and reserve. Two stays can never overlap.
 
 ## How it works
 
-- **Any days, any length.** A stay runs from check-in to check-out (up to 21
-  nights, up to a year ahead). The check-out day is free for the next family to
-  arrive.
-- **No double bookings.** Every occupied night is a row with a unique key in
-  SQLite, so if two people reserve the same weekend at the same moment, one
-  succeeds and the other is told to pick different dates.
+- **Check-in and check-out times.** Tap your check-in day, then your
+  check-out day (tap the same day twice for a day visit). Check-in defaults
+  to 3:00 PM and check-out to 11:00 AM; you can pick other times.
+- **Shared turnover days.** If one family checks out at 11:00 AM on the 10th,
+  the 10th shows half-filled with "out 11a". The next family can check in that
+  day, but only at 11:00 AM or later, and the form tells them who is leaving
+  and when. Days in the middle of a stay are fully blocked.
+- **No double bookings.** Every booking is checked against existing stays by
+  exact date and time inside a SQLite write transaction, so if two people
+  reserve overlapping times at the same moment, one succeeds and the other is
+  told who they clash with.
 - **Family passcode.** Everyone shares one passcode to see the calendar and book.
 - **Cancel codes.** After booking you get a 6-character code. The phone you
   booked on remembers it; from any other device you can cancel with the code.
 - **Admin.** Sign in with the admin passcode to cancel any stay and to block
-  dates (repairs, owners' use). Blocked dates show as striped.
+  whole days (repairs, owners' use). Blocked days show as striped.
+
+Upgrading from the first version is automatic: existing bookings get the
+default times (3:00 PM in, 11:00 AM out) the first time the app starts.
 
 ## Run it locally
 

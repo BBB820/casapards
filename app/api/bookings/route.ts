@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { currentRole } from "@/lib/auth.ts";
 import { createBooking, listBookings } from "@/lib/bookings.ts";
-import { RANGE_ERROR_TEXT, type RangeError } from "@/lib/dates.ts";
+import { STAY_ERROR_TEXT, type StayError } from "@/lib/dates.ts";
 import { getDb } from "@/lib/db.ts";
 import { houseToday } from "@/lib/house.ts";
 
 const ERROR_TEXT: Record<string, string> = {
-  ...RANGE_ERROR_TEXT,
+  ...STAY_ERROR_TEXT,
   missing_name: "Add the name the stay is under.",
   bad_guests: "Guests should be a number from 1 to 30.",
-  dates_taken: "Someone just booked some of those nights. Pick other dates.",
+  dates_taken: "Those dates overlap another stay. Pick other dates or times.",
 };
 
 const unauthorized = () =>
@@ -34,10 +34,11 @@ export async function POST(request: Request) {
   const result = createBooking(getDb(), body, houseToday());
   if (!result.ok) {
     const status = result.error === "dates_taken" ? 409 : 400;
-    return NextResponse.json(
-      { error: ERROR_TEXT[result.error as RangeError] ?? "That booking didn't work.", code: result.error },
-      { status },
-    );
+    const clash = result.clash;
+    const error = clash
+      ? `That overlaps ${clash.name} (${clash.checkIn} ${clash.checkInTime} to ${clash.checkOut} ${clash.checkOutTime}). Pick other dates or times.`
+      : (ERROR_TEXT[result.error as StayError] ?? "That booking didn't work.");
+    return NextResponse.json({ error, code: result.error, clash }, { status });
   }
   return NextResponse.json(
     { booking: result.booking, cancelCode: result.cancelCode },

@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  addDays, daysBetween, MAX_DAYS_AHEAD, MAX_NIGHTS, monthGrid, nightsOf, todayISO,
+  addDays, dayInfo, daysBetween, DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT, MAX_DAYS, MAX_DAYS_AHEAD, monthGrid,
+  todayISO, type DayInfo,
 } from "@/lib/dates.ts";
 import type { Booking } from "@/lib/bookings.ts";
 
 type Props = { houseName: string; isAdmin: boolean; canSignOut: boolean };
+type Info = DayInfo<Booking> & {
+  status: "free" | "booked" | "blocked" | "out" | "in" | "turnover";
+  /** Whether any time that day is still free. */
+  open: boolean;
+};
 
 const CODES_KEY = "casapards.cancelCodes";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -30,7 +36,21 @@ function saveCodes(codes: Record<string, string>) {
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Date(iso + "T12:00:00Z").toLocaleDateString(undefined, { timeZone: "UTC", ...opts });
 const longDate = (iso: string) => fmt(iso, { weekday: "short", day: "numeric", month: "short" });
-const nightsLabel = (n: number) => `${n} night${n === 1 ? "" : "s"}`;
+/** "15:00" -> "3:00 PM" in the viewer's locale. */
+const timeText = (t: string) =>
+  new Date(`2000-01-01T${t}:00Z`).toLocaleTimeString(undefined, { timeZone: "UTC", hour: "numeric", minute: "2-digit" });
+/** "15:00" -> "3p", "11:30" -> "11:30a": fits inside a calendar cell. */
+const shortTime = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "a" : "p"}`;
+};
+const daysLabel = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+const stayText = (b: Booking) =>
+  b.kind === "blocked"
+    ? `${longDate(b.checkIn)}${b.checkOut !== b.checkIn ? ` – ${longDate(b.checkOut)}` : ""}`
+    : `${longDate(b.checkIn)}, ${timeText(b.checkInTime)} → ${longDate(b.checkOut)}, ${timeText(b.checkOutTime)}`;
+const maxTime = (a: string, b: string) => (a > b ? a : b);
+const minTime = (a: string, b: string) => (a < b ? a : b);
 
 export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [today, setToday] = useState(() => todayISO());
@@ -38,8 +58,9 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [monthOffset, setMonthOffset] = useState(0);
-  const [checkIn, setCheckIn] = useState<string | null>(null);
-  const [checkOut, setCheckOut] = useState<string | null>(null);
+  const [first, setFirst] = useState<string | null>(null);
+  const [last, setLast] = useState<string | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   const [hint, setHint] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null } | null>(null);
@@ -78,12 +99,23 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     };
   }, [load]);
 
-  // night -> booking occupying it
-  const byNight = useMemo(() => {
-    const map = new Map<string, Booking>();
-    for (const b of bookings) for (const n of nightsOf(b.checkIn, b.checkOut)) map.set(n, b);
-    return map;
-  }, [bookings]);
+  const infoCache = useMemo(() => new Map<string, Info>(), [bookings]);
+  const info = useCallback((day: string): Info => {
+    let hit = infoCache.get(day);
+    if (!hit) {
+      const d = dayInfo(day, bookings);
+      const blocked = [d.full, d.outBy, d.inFrom].some((b) => b?.kind === "blocked");
+      const status: Info["status"] = blocked ? "blocked"
+        : d.full ? "booked"
+        : d.outBy && d.inFrom ? "turnover"
+        : d.outBy ? "out"
+        : d.inFrom ? "in"
+        : "free";
+      hit = { ...d, status, open: status !== "blocked" && status !== "booked" && d.freeFrom < d.freeUntil };
+      infoCache.set(day, hit);
+    }
+    return hit;
+  }, [bookings, infoCache]);
 
   if (!mounted) {
     return (
@@ -100,32 +132,45 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   }
 
   const lastBookable = addDays(today, MAX_DAYS_AHEAD);
-  const isFreeNight = (d: string) => d >= today && d <= lastBookable && !byNight.has(d);
+  const inWindow = (d: string) => d >= today && d <= lastBookable;
+  const canStart = (d: string) => inWindow(d) && info(d).open;
+  /** Can a stay run from `a` to `b` (b > a)? Days between must be untouched. */
+  const canSpan = (a: string, b: string) => {
+    if (info(a).inFrom || info(b).outBy) return false;
+    for (let d = addDays(a, 1); d < b; d = addDays(d, 1)) if (info(d).status !== "free") return false;
+    return inWindow(b) && info(b).open;
+  };
+
+  const previewEnd =
+    first && !last && hover && hover > first && daysBetween(first, hover) < MAX_DAYS && canSpan(first, hover) ? hover : null;
 
   function pick(day: string) {
     setConfirmed(null);
     setHint("");
     const startNew = () => {
-      if (!isFreeNight(day)) {
-        setHint(byNight.has(day) ? "That night is taken. Pick a free day to arrive." : "Pick a day from today onward.");
+      if (!canStart(day)) {
+        setHint(inWindow(day) ? "That day is fully booked. Pick another day." : "Pick a day from today onward.");
         return;
       }
-      setCheckIn(day);
-      setCheckOut(null);
+      setFirst(day);
+      setLast(null);
     };
-    if (!checkIn || checkOut || day <= checkIn) return startNew();
-    const nights = nightsOf(checkIn, day);
-    if (nights.length > MAX_NIGHTS) {
-      setHint(`Stays can be up to ${MAX_NIGHTS} nights.`);
-      return;
+    if (!first || last || day < first) return startNew();
+    if (day === first) return setLast(day); // a one-day visit
+    if (daysBetween(first, day) + 1 > MAX_DAYS) return setHint(`Stays can be up to ${MAX_DAYS} days.`);
+    if (!canSpan(first, day)) {
+      return setHint(
+        info(first).inFrom
+          ? `${info(first).inFrom!.name} checks in on ${longDate(first)}, so that day only works for a short visit before ${timeText(info(first).freeUntil)}.`
+          : "Another stay falls between those days. Pick a shorter stay or other dates.",
+      );
     }
-    if (nights.some((n) => !isFreeNight(n))) return startNew();
-    setCheckOut(day);
+    setLast(day);
   }
 
   const clearSelection = () => {
-    setCheckIn(null);
-    setCheckOut(null);
+    setFirst(null);
+    setLast(null);
     setHint("");
   };
 
@@ -166,7 +211,15 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
   });
   const maxOffset = 12;
-  const upcoming = bookings.filter((b) => b.checkOut > today);
+  const upcoming = bookings.filter((b) => b.checkOut >= today);
+
+  const instruction = !loaded
+    ? "Checking which days are free…"
+    : !first
+      ? "Tap your check-in day."
+      : !last
+        ? "Now tap your check-out day. Tap the same day again for a day visit."
+        : `${longDate(first)}${last !== first ? ` – ${longDate(last)}` : ""} picked.`;
 
   return (
     <main className="shell">
@@ -185,24 +238,26 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
       <section className="layout">
         <div className="calendar card">
           <div className="cal-head">
-            <button
-              className="icon"
-              aria-label="Previous month"
-              onClick={() => setMonthOffset((m) => Math.max(0, m - 1))}
-              disabled={monthOffset === 0}
-            >‹</button>
-            <p className="muted small">
-              {!checkIn ? "Tap the day you arrive." : !checkOut ? "Now tap the day you leave." : "Dates picked. Fill in the form to reserve."}
-            </p>
-            <button
-              className="icon"
-              aria-label="Next month"
-              onClick={() => setMonthOffset((m) => Math.min(maxOffset, m + 1))}
-              disabled={monthOffset >= maxOffset}
-            >›</button>
+            <div className="cal-nav">
+              <button
+                className="icon"
+                aria-label="Previous month"
+                onClick={() => setMonthOffset((m) => Math.max(0, m - 1))}
+                disabled={monthOffset === 0}
+              >‹</button>
+              <button className="chip" onClick={() => setMonthOffset(0)} disabled={monthOffset === 0}>Today</button>
+              <button
+                className="icon"
+                aria-label="Next month"
+                onClick={() => setMonthOffset((m) => Math.min(maxOffset, m + 1))}
+                disabled={monthOffset >= maxOffset}
+              >›</button>
+            </div>
+            <p className="instruction" aria-live="polite">{instruction}</p>
+            {first && <button className="link small" onClick={clearSelection}>Clear</button>}
           </div>
 
-          <div className="months">
+          <div className={`months${loaded ? "" : " loading"}`} onMouseLeave={() => setHover(null)}>
             {months.map(({ year, month }) => (
               <Month
                 key={`${year}-${month}`}
@@ -210,10 +265,12 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
                 month={month}
                 today={today}
                 lastBookable={lastBookable}
-                byNight={byNight}
-                checkIn={checkIn}
-                checkOut={checkOut}
+                info={info}
+                first={first}
+                last={last ?? previewEnd}
+                preview={!last && Boolean(previewEnd)}
                 onPick={pick}
+                onHover={setHover}
               />
             ))}
           </div>
@@ -221,6 +278,8 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
           <ul className="legend small">
             <li><span className="swatch free" /> Free</li>
             <li><span className="swatch booked" /> Booked</li>
+            <li><span className="swatch out" /> Free after check-out</li>
+            <li><span className="swatch in" /> Free until check-in</li>
             <li><span className="swatch blocked" /> Unavailable</li>
             <li><span className="swatch picked" /> Your dates</li>
           </ul>
@@ -231,10 +290,13 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
         <aside className="side">
           {confirmed ? (
             <Confirmation {...confirmed} onDone={() => setConfirmed(null)} />
-          ) : checkIn && checkOut ? (
+          ) : first && last ? (
             <ReserveForm
-              checkIn={checkIn}
-              checkOut={checkOut}
+              key={`${first}-${last}`}
+              first={first}
+              last={last}
+              firstInfo={info(first)}
+              lastInfo={info(last)}
               isAdmin={isAdmin}
               onBooked={onBooked}
               onClear={clearSelection}
@@ -244,11 +306,16 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
             <div className="card stack">
               <h2>Reserve a stay</h2>
               <p className="muted">
-                {checkIn
-                  ? `Arriving ${longDate(checkIn)}. Tap the day you leave.`
-                  : "Pick your arrival day on the calendar, then the day you leave. Stays run from check-in to check-out, so you can arrive the day someone else leaves."}
+                {first
+                  ? `Check-in: ${longDate(first)}. Now tap your check-out day.`
+                  : `Tap your check-in day, then your check-out day. Check-in is from ${timeText(DEFAULT_CHECK_IN)} and check-out by ${timeText(DEFAULT_CHECK_OUT)} unless you choose other times. Half-filled days show when someone leaves or arrives.`}
               </p>
-              {checkIn && <button className="link" onClick={clearSelection}>Start over</button>}
+              {first && (
+                <div className="row">
+                  <button className="primary" onClick={() => pick(first)}>Day visit on {longDate(first)}</button>
+                  <button className="link" onClick={clearSelection}>Start over</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -277,12 +344,14 @@ function Month(props: {
   month: number;
   today: string;
   lastBookable: string;
-  byNight: Map<string, Booking>;
-  checkIn: string | null;
-  checkOut: string | null;
+  info: (day: string) => Info;
+  first: string | null;
+  last: string | null;
+  preview: boolean;
   onPick: (day: string) => void;
+  onHover: (day: string | null) => void;
 }) {
-  const { year, month, today, lastBookable, byNight, checkIn, checkOut, onPick } = props;
+  const { year, month, today, lastBookable, info, first, last, preview, onPick, onHover } = props;
   const title = new Date(Date.UTC(year, month, 1)).toLocaleDateString(undefined, {
     month: "long", year: "numeric", timeZone: "UTC",
   });
@@ -293,31 +362,49 @@ function Month(props: {
         {WEEKDAYS.map((w) => <div key={w} className="dow" role="columnheader">{w}</div>)}
         {monthGrid(year, month).flat().map((day, i) => {
           if (!day) return <div key={`pad-${i}`} className="day pad" />;
-          const booking = byNight.get(day);
-          const past = day < today || day > lastBookable;
-          const inRange = checkIn && (checkOut ? day >= checkIn && day <= checkOut : day === checkIn);
+          const d = info(day);
+          const out = day < today || day > lastBookable;
+          const end = last ?? first;
+          const inRange = Boolean(first && end && day >= first && day <= end);
           const cls = [
             "day",
-            past ? "past" : booking ? (booking.kind === "blocked" ? "blocked" : "booked") : "free",
-            inRange ? "picked" : "",
-            day === checkIn ? "start" : "",
-            day === checkOut ? "end" : "",
+            out ? "past" : d.status,
+            !out && d.status === "turnover" && !d.open ? "closed" : "",
+            inRange ? (preview ? "preview" : "picked") : "",
+            inRange && day === first ? "start" : "",
+            inRange && day === end ? "end" : "",
             day === today ? "today" : "",
           ].join(" ");
-          const label = `${new Date(day + "T12:00:00Z").toLocaleDateString(undefined, { timeZone: "UTC", dateStyle: "full" })}${
-            booking ? `, ${booking.kind === "blocked" ? "unavailable" : `booked by ${booking.name}`}` : past ? "" : ", free"
-          }`;
+          const who = d.full ?? d.outBy ?? d.inFrom;
+          const describe =
+            out ? "not bookable"
+            : d.status === "blocked" ? `unavailable${who ? `: ${who.name}` : ""}`
+            : d.status === "booked" ? `booked by ${who?.name ?? "someone"}`
+            : d.status === "turnover"
+              ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}, ${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}${d.open ? "" : "; no free time"}`
+            : d.status === "out" ? `${d.outBy!.name} checks out at ${timeText(d.freeFrom)}; free after`
+            : d.status === "in" ? `${d.inFrom!.name} checks in at ${timeText(d.freeUntil)}; free before`
+            : "free";
+          const note =
+            out ? null
+            : d.status === "out" ? `out ${shortTime(d.freeFrom)}`
+            : d.status === "in" ? `in ${shortTime(d.freeUntil)}`
+            : d.status === "turnover" ? (d.open ? `${shortTime(d.freeFrom)}–${shortTime(d.freeUntil)}` : `⇄${shortTime(d.freeFrom)}`)
+            : null;
           return (
             <button
               key={day}
               className={cls}
               onClick={() => onPick(day)}
-              disabled={day < today || day > addDays(lastBookable, 1)}
-              aria-label={label}
-              aria-pressed={Boolean(inRange)}
-              title={booking ? (booking.kind === "blocked" ? booking.name : `${booking.name} · ${booking.guests} guests`) : undefined}
+              onMouseEnter={() => onHover(day)}
+              onFocus={() => onHover(day)}
+              disabled={out}
+              aria-label={`${fmt(day, { dateStyle: "full" })}, ${describe}`}
+              aria-pressed={inRange}
+              title={out ? undefined : describe}
             >
-              <span>{Number(day.slice(8))}</span>
+              <span className="num">{Number(day.slice(8))}</span>
+              {note && <span className="cell-note">{note}</span>}
             </button>
           );
         })}
@@ -327,18 +414,29 @@ function Month(props: {
 }
 
 function ReserveForm(props: {
-  checkIn: string;
-  checkOut: string;
+  first: string;
+  last: string;
+  firstInfo: Info;
+  lastInfo: Info;
   isAdmin: boolean;
   onBooked: (b: Booking, code: string | null) => void;
   onClear: () => void;
   onConflict: () => void;
 }) {
-  const { checkIn, checkOut, isAdmin, onBooked, onClear, onConflict } = props;
+  const { first, last, firstInfo, lastInfo, isAdmin, onBooked, onClear, onConflict } = props;
+  const sameDay = first === last;
+  // Earliest check-in and latest check-out the neighbouring stays allow.
+  const earliestIn = firstInfo.freeFrom;
+  const latestOut = lastInfo.freeUntil === "24:00" ? "23:59" : lastInfo.freeUntil;
+  const defaultIn = sameDay ? maxTime("10:00", earliestIn) : maxTime(DEFAULT_CHECK_IN, earliestIn);
+  const defaultOut = sameDay ? minTime("18:00", latestOut) : minTime(DEFAULT_CHECK_OUT, latestOut);
+
   const [mode, setMode] = useState<"stay" | "blocked">("stay");
   const [name, setName] = useState("");
   const [guests, setGuests] = useState("4");
   const [note, setNote] = useState("");
+  const [inTime, setInTime] = useState(defaultIn);
+  const [outTime, setOutTime] = useState(defaultOut);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -350,12 +448,24 @@ function ReserveForm(props: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError("");
+    if (mode === "stay") {
+      if (inTime < earliestIn) {
+        return setError(`${firstInfo.outBy?.name ?? "The previous guests"} check out at ${timeText(earliestIn)}. Check in at that time or later.`);
+      }
+      if (outTime > latestOut) {
+        return setError(`${lastInfo.inFrom?.name ?? "The next guests"} check in at ${timeText(lastInfo.freeUntil)}. Check out by then.`);
+      }
+      if (sameDay && outTime <= inTime) return setError("Check-out has to be after check-in.");
+    }
+    setBusy(true);
     const res = await fetch("/api/bookings", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: mode, checkIn, checkOut, name, guests: Number(guests), note }),
+      body: JSON.stringify({
+        kind: mode, checkIn: first, checkOut: last, checkInTime: inTime, checkOutTime: outTime,
+        name, guests: Number(guests), note,
+      }),
     });
     const data = await res.json();
     setBusy(false);
@@ -370,14 +480,14 @@ function ReserveForm(props: {
     onBooked(data.booking, data.cancelCode);
   }
 
-  const nights = daysBetween(checkIn, checkOut);
+  const days = daysBetween(first, last) + 1;
   return (
     <form className="card stack" onSubmit={submit}>
-      <h2>{mode === "stay" ? "Reserve these dates" : "Block these dates"}</h2>
+      <h2>{mode === "stay" ? (sameDay ? "Reserve a day visit" : "Reserve these dates") : "Block these dates"}</h2>
       <div className="summary">
-        <div><span className="label">Check-in</span><strong>{longDate(checkIn)}</strong></div>
-        <div><span className="label">Check-out</span><strong>{longDate(checkOut)}</strong></div>
-        <div><span className="label">Length</span><strong>{nightsLabel(nights)}</strong></div>
+        <div><span className="label">Check-in</span><strong>{longDate(first)}</strong></div>
+        <div><span className="label">Check-out</span><strong>{longDate(last)}</strong></div>
+        <div><span className="label">Length</span><strong>{daysLabel(days)}</strong></div>
       </div>
 
       {isAdmin && (
@@ -385,6 +495,31 @@ function ReserveForm(props: {
           <button type="button" role="radio" aria-checked={mode === "stay"} onClick={() => setMode("stay")}>Family stay</button>
           <button type="button" role="radio" aria-checked={mode === "blocked"} onClick={() => setMode("blocked")}>Block dates</button>
         </div>
+      )}
+
+      {mode === "stay" && (
+        <>
+          {firstInfo.outBy && (
+            <p className="notice small">
+              <strong>{firstInfo.outBy.name}</strong> checks out at {timeText(earliestIn)} on {longDate(first)}.
+            </p>
+          )}
+          {lastInfo.inFrom && (
+            <p className="notice small">
+              <strong>{lastInfo.inFrom.name}</strong> checks in at {timeText(lastInfo.freeUntil)} on {longDate(last)}.
+            </p>
+          )}
+          <div className="times">
+            <div className="stack-tight">
+              <label htmlFor="in-time">Check-in time</label>
+              <input id="in-time" type="time" value={inTime} min={earliestIn} onChange={(e) => setInTime(e.target.value)} required />
+            </div>
+            <div className="stack-tight">
+              <label htmlFor="out-time">Check-out time</label>
+              <input id="out-time" type="time" value={outTime} max={latestOut} onChange={(e) => setOutTime(e.target.value)} required />
+            </div>
+          </div>
+        </>
       )}
 
       <label htmlFor="name">{mode === "stay" ? "Name the stay is under" : "Reason (shown to family)"}</label>
@@ -416,12 +551,11 @@ function ReserveForm(props: {
 }
 
 function Confirmation({ booking, code, onDone }: { booking: Booking; code: string | null; onDone: () => void }) {
-  const nights = daysBetween(booking.checkIn, booking.checkOut);
   return (
     <div className="card stack confirm" role="status">
       <h2>{booking.kind === "blocked" ? "Dates blocked" : "You're booked"}</h2>
       <p>
-        <strong>{booking.name}</strong>, {longDate(booking.checkIn)} to {longDate(booking.checkOut)} ({nightsLabel(nights)}).
+        <strong>{booking.name}</strong>: {stayText(booking)}.
       </p>
       {code && (
         <>
@@ -457,7 +591,7 @@ function StayRow({ booking: b, mine, isAdmin, onCancel }: {
         <strong>{b.name}</strong>
         {mine && <span className="pill">Yours</span>}
         <span className="muted small">
-          {longDate(b.checkIn)} → {longDate(b.checkOut)} · {nightsLabel(daysBetween(b.checkIn, b.checkOut))}
+          {stayText(b)}
           {b.kind === "stay" && ` · ${b.guests} ${b.guests === 1 ? "person" : "people"}`}
         </span>
         {b.note && <span className="small">{b.note}</span>}
@@ -469,7 +603,7 @@ function StayRow({ booking: b, mine, isAdmin, onCancel }: {
         )}
         {step === "confirm" && (
           <span className="row">
-            <button className="danger" onClick={() => go()}>Cancel this stay</button>
+            <button className="danger" onClick={() => go()}>{b.kind === "blocked" ? "Unblock dates" : "Cancel this stay"}</button>
             <button className="link" onClick={() => setStep("idle")}>Keep it</button>
           </span>
         )}

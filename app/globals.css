@@ -8,8 +8,8 @@
   --pine: #1f5c45;
   --pine-ink: #ffffff;
   --free: #e6f1ea;
-  --booked: #e9d6c3;
-  --booked-ink: #6b4426;
+  --booked: #dfb994;
+  --booked-ink: #5a3418;
   --blocked: #dde1e4;
   --picked: #f2c94c;
   --picked-ink: #2b2206;
@@ -91,30 +91,48 @@ label { font-weight: 700; font-size: 0.9rem; }
 .segmented button[aria-checked="true"] { background: var(--pine); color: var(--pine-ink); font-weight: 700; }
 
 /* Calendar */
-.cal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; text-align: center; }
+.cal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+.cal-nav { display: flex; align-items: center; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px; font-size: 0.875rem; font-weight: 700; }
+.instruction { flex: 1 1 200px; font-weight: 700; min-width: 0; }
 .months { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 28px; }
+.months.loading .day:not(.past) { background: var(--bg); color: var(--muted); }
 .month h3 { margin-bottom: 10px; }
-.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+/* No column gap, so a picked range reads as one continuous band. */
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 6px; }
 .dow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); text-align: center; padding-bottom: 4px; }
 .day {
-  aspect-ratio: 1; border: 0; border-radius: 8px; display: grid; place-items: center;
-  font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); background: transparent; position: relative;
+  aspect-ratio: 1; max-height: 52px; width: 100%; border: 0; border-radius: 0; margin: 0;
+  display: grid; place-items: center; position: relative;
+  font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); background: transparent;
+  box-shadow: inset 0 0 0 2px var(--surface);
 }
+.day { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; line-height: 1.1; }
+.cell-note { font-size: 0.58rem; max-width: 100%; overflow: hidden; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; }
 .day.pad { visibility: hidden; }
-.day.free { background: var(--free); }
-.day.free:hover { box-shadow: inset 0 0 0 2px var(--pine); }
-.day.booked { background: var(--booked); color: var(--booked-ink); }
+/* Check-out / check-in days: the booked half is drawn diagonally. */
+.day.out { background: linear-gradient(135deg, var(--booked) 0 46%, var(--free) 54%); border-radius: 8px; }
+.day.in { background: linear-gradient(135deg, var(--free) 0 46%, var(--booked) 54%); border-radius: 8px; }
+.day.turnover { background: linear-gradient(135deg, var(--booked) 0 30%, var(--free) 38% 62%, var(--booked) 70%); border-radius: 8px; }
+.day.turnover.closed { background: linear-gradient(135deg, var(--booked) 0 47%, var(--surface) 47% 53%, var(--booked) 53%); color: var(--booked-ink); cursor: not-allowed; }
+.day.out:hover, .day.in:hover, .day.turnover:not(.closed):hover { box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 4px var(--pine); }
+.day.free { background: var(--free); border-radius: 8px; }
+.day.free:hover { box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 4px var(--pine); }
+.day.booked { background: var(--booked); color: var(--booked-ink); border-radius: 8px; cursor: not-allowed; }
 .day.blocked {
   background: repeating-linear-gradient(135deg, var(--blocked) 0 6px, transparent 6px 10px);
-  color: var(--muted);
+  color: var(--muted); border-radius: 8px; cursor: not-allowed;
 }
-.day.past { color: var(--muted); font-weight: 400; opacity: 0.6; }
+.day.past { color: var(--muted); font-weight: 400; opacity: 0.5; }
+.day.picked, .day.preview { border-radius: 0; box-shadow: none; }
 .day.picked { background: var(--picked); color: var(--picked-ink); }
-.day.start { border-radius: 50% 8px 8px 50%; }
-.day.end { border-radius: 8px 50% 50% 8px; }
-.day.start.end { border-radius: 50%; }
+.day.preview { background: color-mix(in srgb, var(--picked) 45%, var(--surface)); color: var(--ink); }
+.day.start { border-radius: 999px 0 0 999px; }
+.day.end { border-radius: 0 999px 999px 0; }
+.day.start.end { border-radius: 999px; }
 .day.today::after {
-  content: ""; position: absolute; bottom: 6px; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+  content: ""; position: absolute; bottom: 5px; left: 50%; translate: -50% 0;
+  width: 5px; height: 5px; border-radius: 50%; background: currentColor;
 }
 .legend { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); }
 .legend li { display: flex; align-items: center; gap: 6px; }
@@ -123,10 +141,15 @@ label { font-weight: 700; font-size: 0.9rem; }
 .swatch.booked { background: var(--booked); }
 .swatch.blocked { background: repeating-linear-gradient(135deg, var(--blocked) 0 3px, transparent 3px 5px); box-shadow: inset 0 0 0 1px var(--line); }
 .swatch.picked { background: var(--picked); }
+.swatch.out { background: linear-gradient(135deg, var(--booked) 0 46%, var(--free) 54%); box-shadow: inset 0 0 0 1px var(--line); }
+.swatch.in { background: linear-gradient(135deg, var(--free) 0 46%, var(--booked) 54%); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* Booking panel */
 .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; border-radius: 8px; background: var(--bg); }
 .summary div { display: grid; }
+.times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stack-tight { display: grid; gap: 4px; min-width: 0; }
+.notice { background: var(--booked); color: var(--booked-ink); border-radius: 8px; padding: 8px 10px; }
 .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .confirm { border-color: var(--pine); }
 .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1.6rem; letter-spacing: 0.2em; font-weight: 700; color: var(--pine); user-select: all; }
