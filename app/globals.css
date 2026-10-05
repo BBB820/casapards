@@ -187,10 +187,14 @@ label { font-weight: 700; font-size: 0.88rem; }
 .c5 { background: var(--c5); color: var(--c5-ink); --glow: var(--c5); }
 .blocked { background: repeating-linear-gradient(135deg, var(--blocked) 0 7px, color-mix(in srgb, var(--blocked) 55%, var(--surface)) 7px 12px); color: var(--blocked-ink); }
 
+/* Times under the bar; a turnover day or day visit wraps onto two lines
+   (check-out left, check-in right) instead of being cut off. */
 .times-row {
-  display: flex; gap: 4px; margin-top: auto; padding: 4px 6px 0;
-  font-size: 0.68rem; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden;
+  display: flex; flex-wrap: wrap; column-gap: 4px; margin-top: auto; padding: 4px 6px 0;
+  font-size: 0.68rem; font-weight: 700; line-height: 1.2; color: var(--muted); overflow: hidden;
 }
+.times-row > span { white-space: nowrap; }
+.times-row > .visit-time { white-space: normal; }
 .times-row .in-time { margin-left: auto; }
 
 .loading .lane, .loading .times-row { visibility: hidden; }
@@ -216,7 +220,7 @@ label { font-weight: 700; font-size: 0.88rem; }
   .seg-label { height: 19px; line-height: 19px; font-size: 0.64rem; left: 4px; width: calc(var(--halves) * 50% - 6px); }
   .seg-label.in { left: calc(50% + 4px); }
   .cell.today::before { top: 28px; left: 12px; }
-  .times-row { font-size: 0.56rem; padding: 2px 3px 0; }
+  .times-row { font-size: 0.56rem; padding: 2px 2px 0; letter-spacing: -0.03em; }
   .times-row .word { display: none; }
 }
 
