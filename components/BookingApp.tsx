@@ -39,10 +39,10 @@ const longDate = (iso: string) => fmt(iso, { weekday: "short", day: "numeric", m
 /** "15:00" -> "3:00 PM" in the viewer's locale. */
 const timeText = (t: string) =>
   new Date(`2000-01-01T${t}:00Z`).toLocaleTimeString(undefined, { timeZone: "UTC", hour: "numeric", minute: "2-digit" });
-/** "15:00" -> "3p", "11:30" -> "11:30a": fits inside a calendar cell. */
+/** "15:00" -> "3pm", "11:30" -> "11:30am", "02:00" -> "2am": fits inside a calendar cell. */
 const shortTime = (t: string) => {
   const [h, m] = t.split(":").map(Number);
-  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "a" : "p"}`;
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
 };
 const daysLabel = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 const stayText = (b: Booking) =>
@@ -506,7 +506,7 @@ function Month(props: {
             <span className="times-row">
               {!out && d.status !== "blocked" && (
                 d.outBy && d.outBy === d.inFrom ? (
-                  <span>{shortTime(d.outBy.checkInTime)}–{shortTime(d.outBy.checkOutTime)}</span>
+                  <span className="visit-time">{shortTime(d.outBy.checkInTime)}–<wbr />{shortTime(d.outBy.checkOutTime)}</span>
                 ) : (
                   <>
                     {d.outBy && <span><span className="word">out </span>{shortTime(d.freeFrom)}</span>}
