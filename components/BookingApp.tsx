@@ -49,6 +49,7 @@ const stayText = (b: Booking) =>
   b.kind === "blocked"
     ? `${longDate(b.checkIn)}${b.checkOut !== b.checkIn ? ` – ${longDate(b.checkOut)}` : ""}`
     : `${longDate(b.checkIn)}, ${timeText(b.checkInTime)} → ${longDate(b.checkOut)}, ${timeText(b.checkOutTime)}`;
+const clashText = (c: Booking) => `That overlaps ${c.name} (${stayText(c)}). Pick other dates or times.`;
 const maxTime = (a: string, b: string) => (a > b ? a : b);
 const minTime = (a: string, b: string) => (a < b ? a : b);
 
@@ -63,7 +64,8 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const [hint, setHint] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
-  const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null } | null>(null);
+  const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null; edited?: boolean } | null>(null);
+  const [editing, setEditing] = useState<Booking | null>(null);
   // Dates and month names depend on the browser's locale and time zone, so
   // render the calendar only in the browser to avoid hydration mismatches.
   const [mounted, setMounted] = useState(false);
@@ -146,6 +148,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     first && !last && hover && hover > first && daysBetween(first, hover) < MAX_DAYS && canSpan(first, hover) ? hover : null;
 
   function pick(day: string) {
+    setEditing(null);
     setConfirmed(null);
     setHint("");
     const startNew = () => {
@@ -186,19 +189,47 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     load();
   }
 
-  async function cancel(b: Booking, code?: string): Promise<string | null> {
+  function forgetCode(id: string) {
+    setCodes((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      saveCodes(next);
+      return next;
+    });
+  }
+
+  function addCode(id: string, code: string) {
+    setCodes((prev) => {
+      const next = { ...prev, [id]: code };
+      saveCodes(next);
+      return next;
+    });
+  }
+
+  async function cancel(b: Booking): Promise<string | null> {
     const res = await fetch(`/api/bookings/${b.id}`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: code ?? codes[b.id] ?? "" }),
+      body: JSON.stringify({ code: codes[b.id] ?? "" }),
     });
+    if (res.status === 403) forgetCode(b.id);
     if (!res.ok && res.status !== 404) return (await res.json()).error ?? "Couldn't cancel that stay.";
-    const next = { ...codes };
-    delete next[b.id];
-    setCodes(next);
-    saveCodes(next);
+    forgetCode(b.id);
+    if (editing?.id === b.id) setEditing(null);
     load();
     return null;
+  }
+
+  function startEdit(b: Booking) {
+    clearSelection();
+    setConfirmed(null);
+    setEditing(b);
+  }
+
+  function onEdited(b: Booking) {
+    setEditing(null);
+    setConfirmed({ booking: b, code: null, edited: true });
+    load();
   }
 
   async function signOut() {
@@ -267,6 +298,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               lastBookable={lastBookable}
               bookings={bookings}
               colors={colors}
+              editingId={editing?.id ?? null}
               info={info}
               first={first}
               last={last ?? previewEnd}
@@ -288,7 +320,16 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
         </div>
 
         <aside className="side">
-          {confirmed ? (
+          {editing ? (
+            <EditForm
+              key={editing.id}
+              booking={editing}
+              code={codes[editing.id] ?? ""}
+              today={today}
+              onSaved={onEdited}
+              onClose={() => setEditing(null)}
+            />
+          ) : confirmed ? (
             <Confirmation {...confirmed} onDone={() => setConfirmed(null)} />
           ) : first && last ? (
             <ReserveForm
@@ -328,7 +369,17 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
             ) : (
               <ul className="stays">
                 {upcoming.map((b) => (
-                  <StayRow key={b.id} booking={b} color={colors.get(b.id) ?? "c1"} mine={Boolean(codes[b.id])} isAdmin={isAdmin} onCancel={cancel} />
+                  <StayRow
+                    key={b.id}
+                    booking={b}
+                    color={colors.get(b.id) ?? "c1"}
+                    mine={Boolean(codes[b.id])}
+                    isAdmin={isAdmin}
+                    editing={editing?.id === b.id}
+                    onEdit={startEdit}
+                    onCancel={cancel}
+                    onAddCode={addCode}
+                  />
                 ))}
               </ul>
             )}
@@ -385,6 +436,7 @@ function Month(props: {
   lastBookable: string;
   bookings: Booking[];
   colors: Map<string, string>;
+  editingId: string | null;
   info: (day: string) => Info;
   first: string | null;
   last: string | null;
@@ -392,14 +444,14 @@ function Month(props: {
   onPick: (day: string) => void;
   onHover: (day: string | null) => void;
 }) {
-  const { year, month, today, lastBookable, bookings, colors, info, first, last, preview, onPick, onHover } = props;
+  const { year, month, today, lastBookable, bookings, colors, editingId, info, first, last, preview, onPick, onHover } = props;
   const weeks = monthGrid(year, month);
   const days = weeks.flat().filter(Boolean) as string[];
   const monthStart = days[0];
   const monthEnd = days[days.length - 1];
   const end = last ?? first;
   return (
-    <div className="month-grid" role="grid" aria-label={fmt(monthStart, { month: "long", year: "numeric" })}>
+    <div className={`month-grid${editingId ? " editing-mode" : ""}`} role="grid" aria-label={fmt(monthStart, { month: "long", year: "numeric" })}>
       {WEEKDAYS.map((w) => <div key={w} className="dow" role="columnheader">{w}</div>)}
       {weeks.flat().map((day, i) => {
         if (!day) return <div key={`pad-${i}`} className="cell pad" />;
@@ -440,11 +492,11 @@ function Month(props: {
           >
             <span className="num">{Number(day.slice(8))}</span>
             <span className="lane">
-              {segs.map((sg) => <span key={sg.booking.id} className={`seg ${sg.part} ${colors.get(sg.booking.id)}`} />)}
+              {segs.map((sg) => <span key={sg.booking.id} className={`seg ${sg.part} ${colors.get(sg.booking.id)}${sg.booking.id === editingId ? " editing" : ""}`} />)}
               {segs.filter((sg) => sg.halves > 0).map((sg) => (
                 <span
                   key={`label-${sg.booking.id}`}
-                  className={`seg-label ${sg.part} ${colors.get(sg.booking.id)}`}
+                  className={`seg-label ${sg.part} ${colors.get(sg.booking.id)}${sg.booking.id === editingId ? " editing" : ""}`}
                   style={{ "--halves": sg.halves } as React.CSSProperties}
                 >
                   {sg.booking.name}
@@ -527,7 +579,7 @@ function ReserveForm(props: {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setError(data.error ?? "That booking didn't work.");
+      setError(data.clash ? clashText(data.clash) : (data.error ?? "That booking didn't work."));
       if (res.status === 409) onConflict();
       return;
     }
@@ -607,16 +659,16 @@ function ReserveForm(props: {
   );
 }
 
-function Confirmation({ booking, code, onDone }: { booking: Booking; code: string | null; onDone: () => void }) {
+function Confirmation({ booking, code, edited, onDone }: { booking: Booking; code: string | null; edited?: boolean; onDone: () => void }) {
   return (
     <div className="card stack confirm" role="status">
-      <h2>{booking.kind === "blocked" ? "Dates blocked" : "You're booked"}</h2>
+      <h2>{edited ? "Changes saved" : booking.kind === "blocked" ? "Dates blocked" : "You're booked"}</h2>
       <p>
         <strong>{booking.name}</strong>: {stayText(booking)}.
       </p>
       {code && (
         <>
-          <p className="muted">Your cancel code. This device remembers it, but write it down in case you need to cancel from another phone.</p>
+          <p className="muted">Your code for editing or cancelling. This device remembers it, but write it down in case you use another phone.</p>
           <p className="code">{code}</p>
         </>
       )}
@@ -625,26 +677,29 @@ function Confirmation({ booking, code, onDone }: { booking: Booking; code: strin
   );
 }
 
-function StayRow({ booking: b, color, mine, isAdmin, onCancel }: {
+function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, onAddCode }: {
   booking: Booking;
   color: string;
   mine: boolean;
   isAdmin: boolean;
-  onCancel: (b: Booking, code?: string) => Promise<string | null>;
+  editing: boolean;
+  onEdit: (b: Booking) => void;
+  onCancel: (b: Booking) => Promise<string | null>;
+  onAddCode: (id: string, code: string) => void;
 }) {
   const [step, setStep] = useState<"idle" | "confirm" | "code">("idle");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
 
-  async function go(withCode?: string) {
+  async function cancelIt() {
     setError("");
-    const err = await onCancel(b, withCode);
+    const err = await onCancel(b);
     if (err) setError(err);
     else setStep("idle");
   }
 
   return (
-    <li className="stay">
+    <li className={`stay${editing ? " editing" : ""}`}>
       <div className="stay-main">
         <span className={`dot ${color}`} aria-hidden="true" />
         <strong>{b.name}</strong>
@@ -656,18 +711,23 @@ function StayRow({ booking: b, color, mine, isAdmin, onCancel }: {
         {b.note && <span className="small">{b.note}</span>}
       </div>
       <div className="stay-actions small">
-        {step === "idle" && (mine || isAdmin) && <button className="link" onClick={() => setStep("confirm")}>Cancel</button>}
+        {step === "idle" && (mine || isAdmin) && (
+          <span className="row">
+            <button className="pill-btn" onClick={() => onEdit(b)} disabled={editing}>{editing ? "Editing…" : "Edit"}</button>
+            <button className="link" onClick={() => setStep("confirm")}>Cancel</button>
+          </span>
+        )}
         {step === "idle" && !mine && !isAdmin && b.kind === "stay" && (
-          <button className="link" onClick={() => setStep("code")}>Cancel with code</button>
+          <button className="link" onClick={() => setStep("code")}>Have the code? Edit or cancel</button>
         )}
         {step === "confirm" && (
           <span className="row">
-            <button className="danger" onClick={() => go()}>{b.kind === "blocked" ? "Unblock dates" : "Cancel this stay"}</button>
+            <button className="danger" onClick={cancelIt}>{b.kind === "blocked" ? "Unblock dates" : "Cancel this stay"}</button>
             <button className="link" onClick={() => setStep("idle")}>Keep it</button>
           </span>
         )}
         {step === "code" && (
-          <form className="row" onSubmit={(e) => { e.preventDefault(); go(code); }}>
+          <form className="row" onSubmit={(e) => { e.preventDefault(); onAddCode(b.id, code.trim().toUpperCase()); setStep("idle"); }}>
             <input
               id={`code-${b.id}`}
               aria-label="Cancel code"
@@ -677,12 +737,100 @@ function StayRow({ booking: b, color, mine, isAdmin, onCancel }: {
               placeholder="Code"
               required
             />
-            <button className="danger">Cancel stay</button>
+            <button className="pill-btn">Unlock</button>
             <button type="button" className="link" onClick={() => setStep("idle")}>Back</button>
           </form>
         )}
         {error && <p className="error">{error}</p>}
       </div>
     </li>
+  );
+}
+
+function EditForm({ booking: b, code, today, onSaved, onClose }: {
+  booking: Booking;
+  code: string;
+  today: string;
+  onSaved: (b: Booking) => void;
+  onClose: () => void;
+}) {
+  const blocked = b.kind === "blocked";
+  const started = b.checkIn < today;
+  const [checkIn, setCheckIn] = useState(b.checkIn);
+  const [checkInTime, setCheckInTime] = useState(b.checkInTime);
+  const [checkOut, setCheckOut] = useState(b.checkOut);
+  const [checkOutTime, setCheckOutTime] = useState(b.checkOutTime);
+  const [name, setName] = useState(b.name);
+  const [guests, setGuests] = useState(String(b.guests || 1));
+  const [note, setNote] = useState(b.note);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (`${checkOut}T${checkOutTime}` <= `${checkIn}T${checkInTime}`) return setError("Check-out has to be after check-in.");
+    setBusy(true);
+    const res = await fetch(`/api/bookings/${b.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        code, checkIn, checkOut, name, note,
+        ...(blocked ? {} : { checkInTime, checkOutTime, guests: Number(guests) }),
+      }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) return setError(data.clash ? clashText(data.clash) : (data.error ?? "That change didn't work."));
+    onSaved(data.booking);
+  }
+
+  return (
+    <form className="card stack edit-card" onSubmit={save}>
+      <div className="row spread">
+        <h2>{blocked ? "Edit blocked dates" : "Edit reservation"}</h2>
+        <button type="button" className="link small" onClick={onClose}>Close</button>
+      </div>
+      <p className="muted small">{blocked ? "Change the dates or reason." : "Change the dates, times or details. Everyone sees the update right away."}</p>
+      <div className="times">
+        <div className="stack-tight">
+          <label htmlFor="edit-in">Check-in day</label>
+          <input id="edit-in" type="date" value={checkIn} min={started ? undefined : today} disabled={started}
+            onChange={(e) => setCheckIn(e.target.value)} required />
+        </div>
+        {!blocked && (
+          <div className="stack-tight">
+            <label htmlFor="edit-in-time">Check-in time</label>
+            <input id="edit-in-time" type="time" value={checkInTime} disabled={started} onChange={(e) => setCheckInTime(e.target.value)} required />
+          </div>
+        )}
+        <div className="stack-tight">
+          <label htmlFor="edit-out">Check-out day</label>
+          <input id="edit-out" type="date" value={checkOut} min={checkIn} onChange={(e) => setCheckOut(e.target.value)} required />
+        </div>
+        {!blocked && (
+          <div className="stack-tight">
+            <label htmlFor="edit-out-time">Check-out time</label>
+            <input id="edit-out-time" type="time" value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} required />
+          </div>
+        )}
+      </div>
+      {started && <p className="muted small">This stay has already started, so only the check-out can change.</p>}
+      <label htmlFor="edit-name">{blocked ? "Reason (shown to family)" : "Name the stay is under"}</label>
+      <input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
+      {!blocked && (
+        <>
+          <label htmlFor="edit-guests">How many people</label>
+          <input id="edit-guests" type="number" min={1} max={30} value={guests} onChange={(e) => setGuests(e.target.value)} required />
+          <label htmlFor="edit-note">Note for the family <span className="muted">(optional)</span></label>
+          <textarea id="edit-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+        </>
+      )}
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="row">
+        <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+        <button type="button" className="link" onClick={onClose}>Discard</button>
+      </div>
+    </form>
   );
 }
