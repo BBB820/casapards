@@ -1,14 +1,14 @@
 import type { DatabaseSync } from "node:sqlite";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { nightsOf, validateRange, type RangeError } from "./dates.ts";
+import {
+  DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT, validateStay, type Stay, type StayError,
+} from "./dates.ts";
 
 export type Kind = "stay" | "blocked";
 
-export type Booking = {
+export type Booking = Stay & {
   id: string;
   kind: Kind;
-  checkIn: string;
-  checkOut: string;
   name: string;
   guests: number;
   note: string;
@@ -18,7 +18,9 @@ export type Booking = {
 export type NewBooking = {
   kind?: Kind;
   checkIn: unknown;
+  checkInTime?: unknown;
   checkOut: unknown;
+  checkOutTime?: unknown;
   name: unknown;
   guests?: unknown;
   note?: unknown;
@@ -26,24 +28,31 @@ export type NewBooking = {
 
 export type CreateResult =
   | { ok: true; booking: Booking; cancelCode: string | null }
-  | { ok: false; error: RangeError | "missing_name" | "bad_guests" | "dates_taken" };
+  | { ok: false; error: StayError | "missing_name" | "bad_guests" | "dates_taken"; clash?: Booking };
 
 type Row = {
   id: string;
   kind: Kind;
   check_in: string;
+  check_in_time: string;
   check_out: string;
+  check_out_time: string;
   name: string;
   guests: number;
   note: string;
   created_at: string;
 };
 
+const COLUMNS =
+  "id, kind, check_in, check_in_time, check_out, check_out_time, name, guests, note, created_at";
+
 const toBooking = (r: Row): Booking => ({
   id: r.id,
   kind: r.kind,
   checkIn: r.check_in,
+  checkInTime: r.check_in_time,
   checkOut: r.check_out,
+  checkOutTime: r.check_out_time,
   name: r.name,
   guests: r.guests,
   note: r.note,
@@ -58,13 +67,10 @@ function newCancelCode(): string {
   return Array.from(randomBytes(6), (b) => alphabet[b % alphabet.length]).join("");
 }
 
-/** Bookings that end on or after `from`, earliest first. */
+/** Bookings whose check-out day is today or later, earliest first. */
 export function listBookings(db: DatabaseSync, from: string): Booking[] {
   const rows = db
-    .prepare(
-      `SELECT id, kind, check_in, check_out, name, guests, note, created_at
-         FROM bookings WHERE check_out > ? ORDER BY check_in`,
-    )
+    .prepare(`SELECT ${COLUMNS} FROM bookings WHERE check_out >= ? ORDER BY check_in, check_in_time`)
     .all(from) as unknown as Row[];
   return rows.map(toBooking);
 }
@@ -75,10 +81,16 @@ export function createBooking(
   today: string,
 ): CreateResult {
   const kind: Kind = input.kind === "blocked" ? "blocked" : "stay";
-  const rangeError = validateRange(input.checkIn, input.checkOut, today);
-  if (rangeError) return { ok: false, error: rangeError };
-  const checkIn = input.checkIn as string;
-  const checkOut = input.checkOut as string;
+  const stay = {
+    checkIn: input.checkIn,
+    checkOut: input.checkOut,
+    // Blocked dates cover whole days.
+    checkInTime: kind === "blocked" ? "00:00" : (input.checkInTime ?? DEFAULT_CHECK_IN),
+    checkOutTime: kind === "blocked" ? "23:59" : (input.checkOutTime ?? DEFAULT_CHECK_OUT),
+  };
+  const stayError = validateStay(stay, today);
+  if (stayError) return { ok: false, error: stayError };
+  const { checkIn, checkOut, checkInTime, checkOutTime } = stay as Stay;
 
   const name = typeof input.name === "string" ? input.name.trim().slice(0, 80) : "";
   if (!name) return { ok: false, error: "missing_name" };
@@ -93,7 +105,9 @@ export function createBooking(
     id: randomUUID(),
     kind,
     checkIn,
+    checkInTime,
     checkOut,
+    checkOutTime,
     name,
     guests,
     note,
@@ -101,23 +115,32 @@ export function createBooking(
   };
   const cancelCode = kind === "stay" ? newCancelCode() : null;
 
+  // BEGIN IMMEDIATE takes SQLite's write lock up front, so no other booking
+  // can be written between the overlap check and the insert.
   db.exec("BEGIN IMMEDIATE");
   try {
+    const clash = db
+      .prepare(
+        `SELECT ${COLUMNS} FROM bookings
+          WHERE check_in || 'T' || check_in_time < ?
+            AND ? < check_out || 'T' || check_out_time
+          LIMIT 1`,
+      )
+      .get(`${checkOut}T${checkOutTime}`, `${checkIn}T${checkInTime}`) as Row | undefined;
+    if (clash) {
+      db.exec("ROLLBACK");
+      return { ok: false, error: "dates_taken", clash: toBooking(clash) };
+    }
     db.prepare(
-      `INSERT INTO bookings (id, kind, check_in, check_out, name, guests, note, cancel_hash, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO bookings (id, kind, check_in, check_in_time, check_out, check_out_time, name, guests, note, cancel_hash, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      booking.id, kind, checkIn, checkOut, name, guests, note,
+      booking.id, kind, checkIn, checkInTime, checkOut, checkOutTime, name, guests, note,
       cancelCode ? hash(cancelCode) : null, booking.createdAt,
     );
-    const claim = db.prepare("INSERT INTO booking_nights (night, booking_id) VALUES (?, ?)");
-    for (const night of nightsOf(checkIn, checkOut)) claim.run(night, booking.id);
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
-    if (err instanceof Error && /UNIQUE constraint failed: booking_nights/.test(err.message)) {
-      return { ok: false, error: "dates_taken" };
-    }
     throw err;
   }
   return { ok: true, booking, cancelCode };
