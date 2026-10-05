@@ -14,22 +14,14 @@ type Info = DayInfo<Booking> & {
   open: boolean;
 };
 
-const CODES_KEY = "casapards.cancelCodes";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function readCodes(): Record<string, string> {
+/** Older versions remembered codes on the phone; PINs are now asked for every time. */
+function forgetStoredCodes() {
   try {
-    return JSON.parse(localStorage.getItem(CODES_KEY) ?? "{}");
+    localStorage.removeItem("casapards.cancelCodes");
   } catch {
-    return {};
-  }
-}
-
-function saveCodes(codes: Record<string, string>) {
-  try {
-    localStorage.setItem(CODES_KEY, JSON.stringify(codes));
-  } catch {
-    /* private window: codes are still shown on screen */
+    /* private window */
   }
 }
 
@@ -63,6 +55,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [last, setLast] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [hint, setHint] = useState("");
+  // PINs typed in this visit, per booking id. Kept in memory only.
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null; edited?: boolean } | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -90,7 +83,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   }, []);
 
   useEffect(() => {
-    setCodes(readCodes());
+    forgetStoredCodes();
     load();
     const refresh = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", refresh);
@@ -178,44 +171,43 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     setHint("");
   };
 
-  function onBooked(booking: Booking, code: string | null) {
-    if (code) {
-      const next = { ...codes, [booking.id]: code };
-      setCodes(next);
-      saveCodes(next);
-    }
-    setConfirmed({ booking, code });
+  function onBooked(booking: Booking, pin: string | null) {
+    if (pin) setCodes((prev) => ({ ...prev, [booking.id]: pin }));
+    setConfirmed({ booking, code: pin });
     clearSelection();
     load();
   }
 
-  function forgetCode(id: string) {
+  function lock(id: string) {
     setCodes((prev) => {
       const next = { ...prev };
       delete next[id];
-      saveCodes(next);
       return next;
     });
+    if (editing?.id === id) setEditing(null);
   }
 
-  function addCode(id: string, code: string) {
-    setCodes((prev) => {
-      const next = { ...prev, [id]: code };
-      saveCodes(next);
-      return next;
+  /** Check a PIN with the server; on success Edit / Delete appear for that stay. */
+  async function unlock(id: string, pin: string): Promise<string | null> {
+    const res = await fetch(`/api/bookings/${id}/verify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: pin }),
     });
+    if (!res.ok) return (await res.json()).error ?? "Couldn't check that PIN.";
+    setCodes((prev) => ({ ...prev, [id]: pin }));
+    return null;
   }
 
-  async function cancel(b: Booking): Promise<string | null> {
+  async function remove(b: Booking): Promise<string | null> {
     const res = await fetch(`/api/bookings/${b.id}`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ code: codes[b.id] ?? "" }),
     });
-    if (res.status === 403) forgetCode(b.id);
-    if (!res.ok && res.status !== 404) return (await res.json()).error ?? "Couldn't cancel that stay.";
-    forgetCode(b.id);
-    if (editing?.id === b.id) setEditing(null);
+    if (res.status === 403) lock(b.id);
+    if (!res.ok && res.status !== 404) return (await res.json()).error ?? "Couldn't delete that stay.";
+    lock(b.id);
     load();
     return null;
   }
@@ -326,7 +318,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               booking={editing}
               code={codes[editing.id] ?? ""}
               today={today}
-              onWrongPin={() => forgetCode(editing.id)}
+              onWrongPin={() => lock(editing.id)}
               onSaved={onEdited}
               onClose={() => setEditing(null)}
             />
@@ -374,12 +366,13 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
                     key={b.id}
                     booking={b}
                     color={colors.get(b.id) ?? "c1"}
-                    mine={Boolean(codes[b.id])}
+                    unlocked={Boolean(codes[b.id])}
                     isAdmin={isAdmin}
                     editing={editing?.id === b.id}
                     onEdit={startEdit}
-                    onCancel={cancel}
-                    onAddCode={addCode}
+                    onDelete={remove}
+                    onUnlock={unlock}
+                    onLock={lock}
                   />
                 ))}
               </ul>
@@ -663,7 +656,7 @@ function ReserveForm(props: {
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
             required
           />
-          <p className="muted small">You'll use this PIN to edit or cancel your stay from any phone. Pick one you'll remember.</p>
+          <p className="muted small">You'll need this PIN to edit or delete your stay later, from any phone. Pick one you'll remember.</p>
         </>
       )}
 
@@ -685,7 +678,7 @@ function Confirmation({ booking, code, edited, onDone }: { booking: Booking; cod
       </p>
       {code && (
         <>
-          <p className="muted">Your PIN for editing or cancelling. This phone remembers it; on another phone, tap "Have the PIN?" on your stay.</p>
+          <p className="muted">Your PIN. Remember it: to edit or delete this stay later, tap "Edit or delete" on it and enter this PIN.</p>
           <p className="code">{code}</p>
         </>
       )}
@@ -694,23 +687,37 @@ function Confirmation({ booking, code, edited, onDone }: { booking: Booking; cod
   );
 }
 
-function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, onAddCode }: {
+function StayRow({ booking: b, color, unlocked, isAdmin, editing, onEdit, onDelete, onUnlock, onLock }: {
   booking: Booking;
   color: string;
-  mine: boolean;
+  unlocked: boolean;
   isAdmin: boolean;
   editing: boolean;
   onEdit: (b: Booking) => void;
-  onCancel: (b: Booking) => Promise<string | null>;
-  onAddCode: (id: string, code: string) => void;
+  onDelete: (b: Booking) => Promise<string | null>;
+  onUnlock: (id: string, pin: string) => Promise<string | null>;
+  onLock: (id: string) => void;
 }) {
-  const [step, setStep] = useState<"idle" | "confirm" | "code">("idle");
-  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"idle" | "pin" | "confirm">("idle");
+  const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const canManage = isAdmin || unlocked;
 
-  async function cancelIt() {
+  async function submitPin(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
     setError("");
-    const err = await onCancel(b);
+    const err = await onUnlock(b.id, pin.trim());
+    setBusy(false);
+    if (err) return setError(err);
+    setPin("");
+    setStep("idle");
+  }
+
+  async function deleteIt() {
+    setError("");
+    const err = await onDelete(b);
     if (err) setError(err);
     else setStep("idle");
   }
@@ -720,7 +727,7 @@ function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, 
       <div className="stay-main">
         <span className={`dot ${color}`} aria-hidden="true" />
         <strong>{b.name}</strong>
-        {mine && <span className="pill">Yours</span>}
+        {unlocked && !isAdmin && <span className="pill">Unlocked</span>}
         <span className="muted small">
           {stayText(b)}
           {b.kind === "stay" && ` · ${b.guests} ${b.guests === 1 ? "person" : "people"}`}
@@ -728,40 +735,45 @@ function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, 
         {b.note && <span className="small">{b.note}</span>}
       </div>
       <div className="stay-actions small">
-        {step === "idle" && (mine || isAdmin) && (
+        {step === "idle" && canManage && (
           <span className="row">
             <button className="pill-btn" onClick={() => onEdit(b)} disabled={editing}>{editing ? "Editing…" : "Edit"}</button>
-            <button className="link" onClick={() => setStep("confirm")}>Cancel</button>
+            <button className="pill-btn danger-btn" onClick={() => setStep("confirm")}>Delete</button>
+            {unlocked && !isAdmin && <button className="link" onClick={() => onLock(b.id)}>Lock</button>}
           </span>
         )}
-        {step === "idle" && !mine && !isAdmin && b.kind === "stay" && (
-          <button className="link" onClick={() => setStep("code")}>Have the PIN? Edit or cancel</button>
+        {step === "idle" && !canManage && b.kind === "stay" && (
+          <button className="pill-btn" onClick={() => setStep("pin")}>Edit or delete</button>
+        )}
+        {step === "pin" && (
+          <form className="pin-step" onSubmit={submitPin}>
+            <label htmlFor={`pin-${b.id}`}>Enter the PIN for this stay</label>
+            <div className="row">
+              <input
+                id={`pin-${b.id}`}
+                className="pin-input"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={6}
+                placeholder="••••"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                autoFocus
+                required
+              />
+              <button className="primary" disabled={busy}>{busy ? "Checking…" : "Continue"}</button>
+              <button type="button" className="link" onClick={() => { setStep("idle"); setError(""); setPin(""); }}>Back</button>
+            </div>
+            <p className="muted small">Forgot it? Ask the admin to change or delete this stay.</p>
+          </form>
         )}
         {step === "confirm" && (
           <span className="row">
-            <button className="danger" onClick={cancelIt}>{b.kind === "blocked" ? "Unblock dates" : "Cancel this stay"}</button>
+            <button className="danger" onClick={deleteIt}>{b.kind === "blocked" ? "Unblock these dates" : "Delete this stay"}</button>
             <button className="link" onClick={() => setStep("idle")}>Keep it</button>
           </span>
         )}
-        {step === "code" && (
-          <form className="row" onSubmit={(e) => { e.preventDefault(); onAddCode(b.id, code.trim().toUpperCase()); setStep("idle"); }}>
-            <input
-              id={`code-${b.id}`}
-              aria-label="PIN"
-              className="code-input"
-              inputMode="numeric"
-              autoComplete="off"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="PIN"
-              maxLength={6}
-              required
-            />
-            <button className="pill-btn">Unlock</button>
-            <button type="button" className="link" onClick={() => setStep("idle")}>Back</button>
-          </form>
-        )}
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
       </div>
     </li>
   );

@@ -6,7 +6,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { databasePath, openDatabase } from "../lib/db.ts";
-import { cancelBooking, createBooking, listBookings, updateBooking } from "../lib/bookings.ts";
+import { cancelBooking, createBooking, listBookings, updateBooking, verifyPin } from "../lib/bookings.ts";
 
 const today = "2026-10-05";
 const stay = (checkIn: string, checkOut: string, name = "Lopez family", times: { checkInTime?: string; checkOutTime?: string } = {}) => ({
@@ -165,4 +165,14 @@ test("bookings made with the old 6-character codes still work", () => {
   db.prepare("UPDATE bookings SET cancel_hash = ? WHERE id = ?").run(legacy, r.booking.id);
   assert.equal(cancelBooking(db, r.booking.id, { code: "1234" }), "wrong_code");
   assert.equal(cancelBooking(db, r.booking.id, { code: " k7q2mx " }), "cancelled");
+});
+
+test("verifyPin checks a PIN without changing the booking", () => {
+  const db = openDatabase(":memory:");
+  const r = createBooking(db, stay("2026-10-10", "2026-10-11"), today);
+  assert.ok(r.ok);
+  assert.equal(verifyPin(db, r.booking.id, "1234"), "ok");
+  assert.equal(verifyPin(db, r.booking.id, "9999"), "wrong_code");
+  assert.equal(verifyPin(db, "missing", "1234"), "not_found");
+  assert.equal(listBookings(db, today).length, 1);
 });

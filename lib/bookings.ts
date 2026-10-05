@@ -215,7 +215,7 @@ export function updateBooking(
 
 /**
  * Cancel a booking. Admins can cancel anything; everyone else needs the
- * cancel code they were shown when they booked.
+ * PIN they chose when booking.
  */
 export function cancelBooking(
   db: DatabaseSync,
@@ -229,4 +229,13 @@ export function cancelBooking(
   if (!checkAuth(row, auth)) return "wrong_code";
   db.prepare("DELETE FROM bookings WHERE id = ?").run(id);
   return "cancelled";
+}
+
+/** Check a PIN without changing anything, so the app can unlock Edit / Delete. */
+export function verifyPin(db: DatabaseSync, id: string, code: string): "ok" | "not_found" | "wrong_code" {
+  const row = db
+    .prepare("SELECT id, cancel_hash FROM bookings WHERE id = ?")
+    .get(id) as { id: string; cancel_hash: string | null } | undefined;
+  if (!row) return "not_found";
+  return checkAuth(row, { code }) ? "ok" : "wrong_code";
 }
