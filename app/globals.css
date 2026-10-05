@@ -233,6 +233,7 @@ label { font-weight: 700; font-size: 0.88rem; }
 .confirm { border-color: var(--pine); box-shadow: 0 0 0 3px var(--pine-soft), var(--shadow); }
 .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1.6rem; letter-spacing: 0.2em; font-weight: 700; color: var(--pine); user-select: all; }
 .code-input { width: 7.5em; text-transform: uppercase; padding: 4px 8px; }
+.pin-input { width: 8em; font-size: 1.3rem; letter-spacing: 0.4em; font-variant-numeric: tabular-nums; text-align: center; }
 
 .stays { list-style: none; padding: 0; margin: 0; display: grid; }
 .stay { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); }

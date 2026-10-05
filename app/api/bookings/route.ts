@@ -9,6 +9,7 @@ const ERROR_TEXT: Record<string, string> = {
   ...STAY_ERROR_TEXT,
   missing_name: "Add the name the stay is under.",
   bad_guests: "Guests should be a number from 1 to 30.",
+  bad_pin: "Choose a 4-digit PIN (numbers only).",
   dates_taken: "Those dates overlap another stay. Pick other dates or times.",
 };
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error, code: result.error, clash }, { status });
   }
   return NextResponse.json(
-    { booking: result.booking, cancelCode: result.cancelCode },
+    { booking: result.booking, pin: result.pin },
     { status: 201 },
   );
 }

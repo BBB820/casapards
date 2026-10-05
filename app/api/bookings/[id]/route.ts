@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { currentRole } from "@/lib/auth.ts";
+import { clearFailures, isLocked, recordFailure } from "@/lib/attempts.ts";
 import { cancelBooking, updateBooking } from "@/lib/bookings.ts";
 import { STAY_ERROR_TEXT } from "@/lib/dates.ts";
 import { houseToday } from "@/lib/house.ts";
 import { getDb } from "@/lib/db.ts";
+
+const LOCKED = "Too many wrong PINs for this stay. Try again in 15 minutes, or ask the admin.";
+
+/** Track wrong PINs per booking (admins are never limited). */
+function trackPin(id: string, admin: boolean, outcome: string) {
+  if (admin) return;
+  if (outcome === "wrong_code") recordFailure(id);
+  else if (outcome !== "not_found") clearFailures(id);
+}
 
 export async function DELETE(
   request: Request,
@@ -17,14 +27,16 @@ export async function DELETE(
   const body = await request.json().catch(() => ({}));
   const code = typeof body?.code === "string" ? body.code : "";
   if (role !== "admin" && !code) {
-    return NextResponse.json({ error: "Enter the cancel code from your booking." }, { status: 400 });
+    return NextResponse.json({ error: "Enter the PIN you chose when booking." }, { status: 400 });
   }
+  if (role !== "admin" && isLocked(id)) return NextResponse.json({ error: LOCKED }, { status: 429 });
   const result = cancelBooking(getDb(), id, role === "admin" ? { admin: true } : { code });
+  trackPin(id, role === "admin", result);
   if (result === "not_found") {
     return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
   }
   if (result === "wrong_code") {
-    return NextResponse.json({ error: "That cancel code doesn't match this stay." }, { status: 403 });
+    return NextResponse.json({ error: "That PIN doesn't match this stay." }, { status: 403 });
   }
   return NextResponse.json({ cancelled: id });
 }
@@ -34,10 +46,10 @@ const EDIT_ERROR_TEXT: Record<string, string> = {
   missing_name: "Add the name the stay is under.",
   bad_guests: "Guests should be a number from 1 to 30.",
   not_found: "That booking no longer exists.",
-  wrong_code: "That cancel code doesn't match this stay.",
+  wrong_code: "That PIN doesn't match this stay.",
 };
 
-/** Edit a booking. Same permission as cancelling: admin, or the stay's cancel code. */
+/** Edit a booking. Same permission as cancelling: admin, or the stay's PIN. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -53,13 +65,15 @@ export async function PATCH(
   }
   const code = typeof body.code === "string" ? body.code : "";
   if (role !== "admin" && !code) {
-    return NextResponse.json({ error: "Enter the cancel code from your booking." }, { status: 400 });
+    return NextResponse.json({ error: "Enter the PIN you chose when booking." }, { status: 400 });
   }
+  if (role !== "admin" && isLocked(id)) return NextResponse.json({ error: LOCKED }, { status: 429 });
   const { checkIn, checkInTime, checkOut, checkOutTime, name, guests, note } = body;
   const result = updateBooking(
     getDb(), id, { checkIn, checkInTime, checkOut, checkOutTime, name, guests, note },
     role === "admin" ? { admin: true } : { code }, houseToday(),
   );
+  trackPin(id, role === "admin", result.ok ? "ok" : result.error);
   if (!result.ok) {
     const clash = result.clash;
     const error = clash
