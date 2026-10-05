@@ -17,6 +17,9 @@ leave, and reserve. Two stays can never overlap.
   exact date and time inside a SQLite write transaction, so if two people
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
+- **See a stay.** Tap a coloured bar on the calendar to open that stay's
+  details (and Edit or delete). On phones, the Calendar and Stays tabs switch
+  between the month view and the list of upcoming stays.
 - **Family passcode.** Everyone shares one passcode to see the calendar and book.
 - **Edit or delete with your PIN.** When booking you choose a 4-digit PIN.
   To change or remove a stay later, tap **Edit or delete** on it and enter

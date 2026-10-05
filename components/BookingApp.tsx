@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays, dayInfo, daysBetween, DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT, MAX_DAYS, MAX_DAYS_AHEAD, monthGrid,
   todayISO, type DayInfo,
@@ -59,6 +59,18 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<{ booking: Booking; code: string | null; edited?: boolean } | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
+  // Stay opened by tapping its bar on the calendar.
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  // Phone-only tabs; on wider screens both sides show at once.
+  const [tab, setTab] = useState<"calendar" | "stays">("calendar");
+  const panelRef = useRef<HTMLDivElement>(null);
+  // On phones the panel sits below the calendar: bring it into view when a
+  // stay is opened or an edit starts.
+  useEffect(() => {
+    if ((viewingId || editing) && window.matchMedia("(max-width: 960px)").matches) {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [viewingId, editing]);
   // Dates and month names depend on the browser's locale and time zone, so
   // render the calendar only in the browser to avoid hydration mismatches.
   const [mounted, setMounted] = useState(false);
@@ -142,6 +154,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
 
   function pick(day: string) {
     setEditing(null);
+    setViewingId(null);
     setConfirmed(null);
     setHint("");
     const startNew = () => {
@@ -213,6 +226,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   }
 
   function startEdit(b: Booking) {
+    setViewingId(null);
     clearSelection();
     setConfirmed(null);
     setEditing(b);
@@ -222,6 +236,13 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
     setEditing(null);
     setConfirmed({ booking: b, code: null, edited: true });
     load();
+  }
+
+  function openStay(id: string) {
+    setEditing(null);
+    setConfirmed(null);
+    clearSelection();
+    setViewingId(id);
   }
 
   async function signOut() {
@@ -234,6 +255,23 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
   const monthTitle = shown.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
   const maxOffset = 12;
   const upcoming = bookings.filter((b) => b.checkOut >= today);
+  const viewing = viewingId ? bookings.find((b) => b.id === viewingId) ?? null : null;
+  const focusId = editing?.id ?? viewing?.id ?? null;
+  const panelActive = Boolean(editing || viewing || confirmed);
+  const stayRow = (b: Booking) => (
+    <StayRow
+      key={b.id}
+      booking={b}
+      color={colors.get(b.id) ?? "c1"}
+      unlocked={Boolean(codes[b.id])}
+      isAdmin={isAdmin}
+      editing={editing?.id === b.id}
+      onEdit={startEdit}
+      onDelete={remove}
+      onUnlock={unlock}
+      onLock={lock}
+    />
+  );
 
   const instruction = !loaded
     ? "Checking which days are free…"
@@ -257,7 +295,14 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
         </nav>
       </header>
 
-      <section className="layout">
+      <div className="tabs" role="tablist" aria-label="View">
+        <button role="tab" aria-selected={tab === "calendar"} onClick={() => setTab("calendar")}>Calendar</button>
+        <button role="tab" aria-selected={tab === "stays"} onClick={() => setTab("stays")}>
+          Stays{loaded && upcoming.length > 0 ? ` (${upcoming.length})` : ""}
+        </button>
+      </div>
+
+      <section className="layout" data-tab={tab}>
         <div className="calendar card">
           <div className="cal-head">
             <h2 className="month-title">{monthTitle}</h2>
@@ -290,12 +335,14 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               lastBookable={lastBookable}
               bookings={bookings}
               colors={colors}
-              editingId={editing?.id ?? null}
+              editingId={focusId}
               info={info}
               first={first}
               last={last ?? previewEnd}
               preview={!last && Boolean(previewEnd)}
               onPick={pick}
+              onOpenStay={openStay}
+              selecting={Boolean(first && !last)}
               onHover={setHover}
             />
           </div>
@@ -312,6 +359,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
         </div>
 
         <aside className="side">
+          <div ref={panelRef} className={`panel${panelActive ? " active" : ""}`}>
           {editing ? (
             <EditForm
               key={editing.id}
@@ -322,6 +370,14 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               onSaved={onEdited}
               onClose={() => setEditing(null)}
             />
+          ) : viewing ? (
+            <div className="card stack stay-card">
+              <div className="row spread">
+                <h2>{viewing.kind === "blocked" ? "Unavailable" : "Stay details"}</h2>
+                <button className="link small" onClick={() => setViewingId(null)}>Close</button>
+              </div>
+              <ul className="stays">{stayRow(viewing)}</ul>
+            </div>
           ) : confirmed ? (
             <Confirmation {...confirmed} onDone={() => setConfirmed(null)} />
           ) : first && last ? (
@@ -342,7 +398,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               <p className="muted">
                 {first
                   ? `Check-in: ${longDate(first)}. Now tap your check-out day.`
-                  : `Tap your check-in day, then your check-out day. Check-in is from ${timeText(DEFAULT_CHECK_IN)} and check-out by ${timeText(DEFAULT_CHECK_OUT)} unless you choose other times. Half bars show the day someone leaves or arrives, with the time.`}
+                  : `Tap your check-in day, then your check-out day. Check-in is from ${timeText(DEFAULT_CHECK_IN)} and check-out by ${timeText(DEFAULT_CHECK_OUT)} unless you choose other times. Half bars show the day someone leaves or arrives, with the time. Tap a coloured bar to see that stay.`}
               </p>
               {first && (
                 <div className="row">
@@ -352,8 +408,9 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               )}
             </div>
           )}
+          </div>
 
-          <div className="card stack">
+          <div className="card stack stays-card">
             <h2>Upcoming stays</h2>
             {!loaded ? (
               <p className="muted">Loading the calendar…</p>
@@ -361,20 +418,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               <p className="muted">Nobody has booked yet. The house is all yours.</p>
             ) : (
               <ul className="stays">
-                {upcoming.map((b) => (
-                  <StayRow
-                    key={b.id}
-                    booking={b}
-                    color={colors.get(b.id) ?? "c1"}
-                    unlocked={Boolean(codes[b.id])}
-                    isAdmin={isAdmin}
-                    editing={editing?.id === b.id}
-                    onEdit={startEdit}
-                    onDelete={remove}
-                    onUnlock={unlock}
-                    onLock={lock}
-                  />
-                ))}
+                {upcoming.map(stayRow)}
               </ul>
             )}
           </div>
@@ -436,9 +480,11 @@ function Month(props: {
   last: string | null;
   preview: boolean;
   onPick: (day: string) => void;
+  onOpenStay: (id: string) => void;
+  selecting: boolean;
   onHover: (day: string | null) => void;
 }) {
-  const { year, month, today, lastBookable, bookings, colors, editingId, info, first, last, preview, onPick, onHover } = props;
+  const { year, month, today, lastBookable, bookings, colors, editingId, info, first, last, preview, onPick, onOpenStay, selecting, onHover } = props;
   const weeks = monthGrid(year, month);
   const days = weeks.flat().filter(Boolean) as string[];
   const monthStart = days[0];
@@ -476,7 +522,14 @@ function Month(props: {
           <button
             key={day}
             className={cls}
-            onClick={() => onPick(day)}
+            onClick={(e) => {
+              // Tapping a stay's bar (or a fully booked day) opens that stay,
+              // unless you're in the middle of choosing a check-out day.
+              const seg = (e.target as HTMLElement).closest<HTMLElement>("[data-booking]");
+              const id = seg?.dataset.booking ?? (!d.open ? who?.id : undefined);
+              if (id && !selecting) onOpenStay(id);
+              else onPick(day);
+            }}
             onMouseEnter={() => onHover(day)}
             onFocus={() => onHover(day)}
             disabled={out}
@@ -486,7 +539,13 @@ function Month(props: {
           >
             <span className="num">{Number(day.slice(8))}</span>
             <span className="lane">
-              {segs.map((sg) => <span key={sg.booking.id} className={`seg ${sg.part} ${colors.get(sg.booking.id)}${sg.booking.id === editingId ? " editing" : ""}`} />)}
+              {segs.map((sg) => (
+                <span
+                  key={sg.booking.id}
+                  data-booking={sg.booking.id}
+                  className={`seg ${sg.part} ${colors.get(sg.booking.id)}${sg.booking.id === editingId ? " editing" : ""}`}
+                />
+              ))}
               {segs.filter((sg) => sg.halves > 0).map((sg) => (
                 <span
                   key={`label-${sg.booking.id}`}

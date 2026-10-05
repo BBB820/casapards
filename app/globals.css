@@ -94,6 +94,22 @@ a { color: var(--pine); }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 24px; align-items: start; }
 .side { display: grid; gap: 20px; min-width: 0; }
 @media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { display: grid; min-width: 0; scroll-margin-top: 80px; }
+
+/* Phone tabs: Calendar / Stays. Wider screens show both side by side. */
+.tabs { display: none; }
+@media (max-width: 960px) {
+  .tabs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px;
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow);
+  }
+  .tabs button { border: 0; background: none; color: var(--muted); border-radius: 999px; padding: 10px; font-weight: 700; }
+  .tabs button[aria-selected="true"] { background: var(--pine); color: var(--pine-ink); }
+  .layout[data-tab="calendar"] .stays-card { display: none; }
+  .layout[data-tab="stays"] .calendar { display: none; }
+  .layout[data-tab="stays"] .panel:not(.active) { display: none; }
+}
 
 /* Controls */
 button { font: inherit; cursor: pointer; }
@@ -238,6 +254,8 @@ label { font-weight: 700; font-size: 0.88rem; }
 .stays { list-style: none; padding: 0; margin: 0; display: grid; }
 .stay { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); }
 .stay:first-child { border-top: 0; padding-top: 0; }
+.stay-card { border-color: var(--sel-edge); box-shadow: 0 0 0 3px var(--sel), var(--shadow); }
+.seg { cursor: pointer; }
 .stay-main { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .stay-main > .small { flex-basis: 100%; padding-left: 20px; }
 .stay-actions { padding-left: 20px; }
