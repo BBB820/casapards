@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { createHash } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,16 +10,16 @@ import { cancelBooking, createBooking, listBookings, updateBooking } from "../li
 
 const today = "2026-10-05";
 const stay = (checkIn: string, checkOut: string, name = "Lopez family", times: { checkInTime?: string; checkOutTime?: string } = {}) => ({
-  checkIn, checkOut, name, guests: 4, ...times,
+  checkIn, checkOut, name, guests: 4, pin: "1234", ...times,
 });
 
-test("books free dates with default times and returns a cancel code", () => {
+test("books free dates with default times and returns the chosen PIN", () => {
   const db = openDatabase(":memory:");
   const r = createBooking(db, stay("2026-10-08", "2026-10-10"), today);
   assert.ok(r.ok);
   assert.equal(r.booking.checkInTime, "15:00");
   assert.equal(r.booking.checkOutTime, "11:00");
-  assert.match(r.cancelCode!, /^[A-Z2-9]{6}$/);
+  assert.equal(r.pin, "1234");
   assert.equal(listBookings(db, today).length, 1);
 });
 
@@ -55,12 +56,12 @@ test("validates names, guest counts and times", () => {
   assert.deepEqual(createBooking(db, stay("2026-10-10", "2026-10-11", "A", { checkInTime: "3pm" }), today), { ok: false, error: "invalid_time" });
 });
 
-test("cancelling needs the right code unless you are the admin", () => {
+test("cancelling needs the right PIN unless you are the admin", () => {
   const db = openDatabase(":memory:");
   const r = createBooking(db, stay("2026-10-10", "2026-10-12"), today);
   assert.ok(r.ok);
   assert.equal(cancelBooking(db, r.booking.id, { code: "WRONG1" }), "wrong_code");
-  assert.equal(cancelBooking(db, r.booking.id, { code: r.cancelCode!.toLowerCase() }), "cancelled");
+  assert.equal(cancelBooking(db, r.booking.id, { code: r.pin! }), "cancelled");
   const again = createBooking(db, stay("2026-10-10", "2026-10-12"), today);
   assert.ok(again.ok, "dates are free again after cancelling");
   assert.equal(cancelBooking(db, again.booking.id, { admin: true }), "cancelled");
@@ -102,7 +103,7 @@ test("editing a stay: owner with code can move it, even over its own old dates",
   const db = openDatabase(":memory:");
   const r = createBooking(db, stay("2026-10-08", "2026-10-10"), today);
   assert.ok(r.ok);
-  const moved = updateBooking(db, r.booking.id, { checkIn: "2026-10-09", checkOut: "2026-10-12", checkOutTime: "13:00", name: "Lopez family" , guests: 5 }, { code: r.cancelCode! }, today);
+  const moved = updateBooking(db, r.booking.id, { checkIn: "2026-10-09", checkOut: "2026-10-12", checkOutTime: "13:00", name: "Lopez family" , guests: 5 }, { code: r.pin! }, today);
   assert.ok(moved.ok);
   assert.deepEqual(
     [moved.booking.checkIn, moved.booking.checkOut, moved.booking.checkOutTime, moved.booking.guests],
@@ -116,7 +117,7 @@ test("editing can't overlap someone else, needs the right code, and keeps fields
   const a = createBooking(db, stay("2026-10-08", "2026-10-10"), today);
   const b = createBooking(db, stay("2026-10-12", "2026-10-14", "Pardo family", {}), today);
   assert.ok(a.ok && b.ok);
-  const clash = updateBooking(db, a.booking.id, { checkOut: "2026-10-13" }, { code: a.cancelCode! }, today);
+  const clash = updateBooking(db, a.booking.id, { checkOut: "2026-10-13" }, { code: a.pin! }, today);
   assert.equal(!clash.ok && clash.error, "dates_taken");
   assert.equal(!clash.ok && clash.clash?.name, "Pardo family");
   assert.equal(updateBooking(db, a.booking.id, { note: "x" }, { code: "WRONG1" }, today).ok, false);
@@ -131,8 +132,37 @@ test("a stay that already started can still change its check-out", () => {
   const db = openDatabase(":memory:");
   const r = createBooking(db, stay("2026-10-04", "2026-10-07"), "2026-10-03");
   assert.ok(r.ok);
-  const later = updateBooking(db, r.booking.id, { checkOut: "2026-10-08" }, { code: r.cancelCode! }, today);
+  const later = updateBooking(db, r.booking.id, { checkOut: "2026-10-08" }, { code: r.pin! }, today);
   assert.ok(later.ok);
-  const moveStart = updateBooking(db, r.booking.id, { checkIn: "2026-10-03" }, { code: r.cancelCode! }, today);
+  const moveStart = updateBooking(db, r.booking.id, { checkIn: "2026-10-03" }, { code: r.pin! }, today);
   assert.equal(!moveStart.ok && moveStart.error, "in_the_past");
+});
+
+test("a stay needs a 4-digit PIN; blocked dates don't", () => {
+  const db = openDatabase(":memory:");
+  for (const pin of [undefined, "", "123", "12345", "12a4"]) {
+    assert.deepEqual(createBooking(db, { ...stay("2026-10-10", "2026-10-11"), pin }, today), { ok: false, error: "bad_pin" }, String(pin));
+  }
+  const blocked = createBooking(db, { kind: "blocked", checkIn: "2026-11-01", checkOut: "2026-11-02", name: "Repairs" }, today);
+  assert.ok(blocked.ok);
+  assert.equal(blocked.pin, null);
+});
+
+test("the same PIN on two stays only unlocks each one with its own PIN", () => {
+  const db = openDatabase(":memory:");
+  const a = createBooking(db, { ...stay("2026-10-10", "2026-10-11"), pin: "4321" }, today);
+  const b = createBooking(db, { ...stay("2026-10-12", "2026-10-13", "B"), pin: "4321" }, today);
+  assert.ok(a.ok && b.ok);
+  assert.ok(updateBooking(db, b.booking.id, { note: "hi" }, { code: "4321" }, today).ok);
+  assert.equal(updateBooking(db, a.booking.id, { note: "hi" }, { code: "1234" }, today).ok, false);
+});
+
+test("bookings made with the old 6-character codes still work", () => {
+  const db = openDatabase(":memory:");
+  const r = createBooking(db, stay("2026-10-10", "2026-10-11"), today);
+  assert.ok(r.ok);
+  const legacy = createHash("sha256").update("K7Q2MX").digest("hex");
+  db.prepare("UPDATE bookings SET cancel_hash = ? WHERE id = ?").run(legacy, r.booking.id);
+  assert.equal(cancelBooking(db, r.booking.id, { code: "1234" }), "wrong_code");
+  assert.equal(cancelBooking(db, r.booking.id, { code: " k7q2mx " }), "cancelled");
 });

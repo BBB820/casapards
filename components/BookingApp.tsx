@@ -326,6 +326,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut }: Props) {
               booking={editing}
               code={codes[editing.id] ?? ""}
               today={today}
+              onWrongPin={() => forgetCode(editing.id)}
               onSaved={onEdited}
               onClose={() => setEditing(null)}
             />
@@ -544,6 +545,7 @@ function ReserveForm(props: {
   const [name, setName] = useState("");
   const [guests, setGuests] = useState("4");
   const [note, setNote] = useState("");
+  const [pin, setPin] = useState("");
   const [inTime, setInTime] = useState(defaultIn);
   const [outTime, setOutTime] = useState(defaultOut);
   const [error, setError] = useState("");
@@ -566,6 +568,7 @@ function ReserveForm(props: {
         return setError(`${lastInfo.inFrom?.name ?? "The next stay"} checks in at ${timeText(lastInfo.freeUntil)}. Check out by then.`);
       }
       if (sameDay && outTime <= inTime) return setError("Check-out has to be after check-in.");
+      if (!/^\d{4}$/.test(pin)) return setError("Choose a 4-digit PIN (numbers only).");
     }
     setBusy(true);
     const res = await fetch("/api/bookings", {
@@ -573,7 +576,7 @@ function ReserveForm(props: {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         kind: mode, checkIn: first, checkOut: last, checkInTime: inTime, checkOutTime: outTime,
-        name, guests: Number(guests), note,
+        name, guests: Number(guests), note, ...(mode === "stay" ? { pin } : {}),
       }),
     });
     const data = await res.json();
@@ -586,7 +589,7 @@ function ReserveForm(props: {
     if (mode === "stay") {
       try { localStorage.setItem("casapards.lastName", name.trim()); } catch { /* ignore */ }
     }
-    onBooked(data.booking, data.cancelCode);
+    onBooked(data.booking, data.pin);
   }
 
   const days = daysBetween(first, last) + 1;
@@ -647,6 +650,20 @@ function ReserveForm(props: {
           <input id="guests" type="number" min={1} max={30} value={guests} onChange={(e) => setGuests(e.target.value)} required />
           <label htmlFor="note">Note for the family <span className="muted">(optional)</span></label>
           <textarea id="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Bringing the dog, arriving late…" />
+          <label htmlFor="pin">Choose a 4-digit PIN</label>
+          <input
+            id="pin"
+            className="pin-input"
+            inputMode="numeric"
+            autoComplete="off"
+            pattern="[0-9]{4}"
+            maxLength={4}
+            placeholder="••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            required
+          />
+          <p className="muted small">You'll use this PIN to edit or cancel your stay from any phone. Pick one you'll remember.</p>
         </>
       )}
 
@@ -668,7 +685,7 @@ function Confirmation({ booking, code, edited, onDone }: { booking: Booking; cod
       </p>
       {code && (
         <>
-          <p className="muted">Your code for editing or cancelling. This device remembers it, but write it down in case you use another phone.</p>
+          <p className="muted">Your PIN for editing or cancelling. This phone remembers it; on another phone, tap "Have the PIN?" on your stay.</p>
           <p className="code">{code}</p>
         </>
       )}
@@ -718,7 +735,7 @@ function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, 
           </span>
         )}
         {step === "idle" && !mine && !isAdmin && b.kind === "stay" && (
-          <button className="link" onClick={() => setStep("code")}>Have the code? Edit or cancel</button>
+          <button className="link" onClick={() => setStep("code")}>Have the PIN? Edit or cancel</button>
         )}
         {step === "confirm" && (
           <span className="row">
@@ -730,11 +747,14 @@ function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, 
           <form className="row" onSubmit={(e) => { e.preventDefault(); onAddCode(b.id, code.trim().toUpperCase()); setStep("idle"); }}>
             <input
               id={`code-${b.id}`}
-              aria-label="Cancel code"
+              aria-label="PIN"
               className="code-input"
+              inputMode="numeric"
+              autoComplete="off"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Code"
+              placeholder="PIN"
+              maxLength={6}
               required
             />
             <button className="pill-btn">Unlock</button>
@@ -747,10 +767,11 @@ function StayRow({ booking: b, color, mine, isAdmin, editing, onEdit, onCancel, 
   );
 }
 
-function EditForm({ booking: b, code, today, onSaved, onClose }: {
+function EditForm({ booking: b, code, today, onWrongPin, onSaved, onClose }: {
   booking: Booking;
   code: string;
   today: string;
+  onWrongPin: () => void;
   onSaved: (b: Booking) => void;
   onClose: () => void;
 }) {
@@ -781,6 +802,7 @@ function EditForm({ booking: b, code, today, onSaved, onClose }: {
     });
     const data = await res.json();
     setBusy(false);
+    if (res.status === 403) onWrongPin();
     if (!res.ok) return setError(data.clash ? clashText(data.clash) : (data.error ?? "That change didn't work."));
     onSaved(data.booking);
   }

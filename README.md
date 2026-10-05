@@ -10,7 +10,7 @@ leave, and reserve. Two stays can never overlap.
   check-out day (tap the same day twice for a day visit). Check-in defaults
   to 3:00 PM and check-out to 11:00 AM; you can pick other times.
 - **Shared turnover days.** If one family checks out at 11:00 AM on the 10th,
-  the 10th shows half-filled with "out 11a". The next family can check in that
+  the 10th shows a half bar with "out 11am". The next family can check in that
   day, but only at 11:00 AM or later, and the form tells them who is leaving
   and when. Days in the middle of a stay are fully blocked.
 - **No double bookings.** Every booking is checked against existing stays by
@@ -18,11 +18,13 @@ leave, and reserve. Two stays can never overlap.
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
 - **Family passcode.** Everyone shares one passcode to see the calendar and book.
-- **Edit or cancel with your code.** After booking you get a 6-character code.
+- **Edit or cancel with your PIN.** When booking you choose a 4-digit PIN.
   The phone you booked on remembers it, so your stays show **Edit** and
-  **Cancel**. On another device, tap "Have the code?" on your stay and enter
-  it. Edits follow the same rules as new bookings (no overlaps), and a stay
-  that has already started can still change its check-out.
+  **Cancel**. On another phone, tap "Have the PIN?" on your stay and enter
+  it. After 5 wrong PINs a stay locks for 15 minutes. Forgot it? The admin
+  can edit or cancel any stay. Edits follow the same rules as new bookings
+  (no overlaps), and a stay that has already started can still change its
+  check-out. (Bookings made before PINs keep their 6-character codes.)
 - **Admin.** Sign in with the admin passcode to edit or cancel any stay and to
   block whole days (repairs, owners' use). Blocked days show as striped.
 

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT, validateStay, type Stay, type StayError,
 } from "./dates.ts";
@@ -24,11 +24,13 @@ export type NewBooking = {
   name: unknown;
   guests?: unknown;
   note?: unknown;
+  /** 4-digit PIN the guest chooses for editing or cancelling (stays only). */
+  pin?: unknown;
 };
 
 export type CreateResult =
-  | { ok: true; booking: Booking; cancelCode: string | null }
-  | { ok: false; error: FieldError | "dates_taken"; clash?: Booking };
+  | { ok: true; booking: Booking; pin: string | null }
+  | { ok: false; error: FieldError | "bad_pin" | "dates_taken"; clash?: Booking };
 
 type Row = {
   id: string;
@@ -59,13 +61,10 @@ const toBooking = (r: Row): Booking => ({
   createdAt: r.created_at,
 });
 
-const hash = (code: string) => createHash("sha256").update(code).digest("hex");
-
-/** Short, readable code a guest uses to cancel their own stay. */
-function newCancelCode(): string {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  return Array.from(randomBytes(6), (b) => alphabet[b % alphabet.length]).join("");
-}
+const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+/** PINs are hashed with the booking id, so the same PIN on two stays hashes differently. */
+const pinHash = (id: string, pin: string) => hash(`pin:${id}:${pin}`);
+export const isValidPin = (pin: unknown): pin is string => typeof pin === "string" && /^\d{4}$/.test(pin);
 
 /** Bookings whose check-out day is today or later, earliest first. */
 export function listBookings(db: DatabaseSync, from: string): Booking[] {
@@ -136,8 +135,9 @@ export function createBooking(
   const kind: Kind = input.kind === "blocked" ? "blocked" : "stay";
   const cleaned = cleanFields(input, kind, today);
   if (!cleaned.ok) return cleaned;
+  const pin = kind === "stay" ? (typeof input.pin === "string" ? input.pin.trim() : "") : null;
+  if (pin !== null && !isValidPin(pin)) return { ok: false, error: "bad_pin" };
   const booking: Booking = { id: randomUUID(), ...cleaned.fields, createdAt: new Date().toISOString() };
-  const cancelCode = kind === "stay" ? newCancelCode() : null;
 
   return withWriteLock(db, (): CreateResult => {
     const clash = findClash(db, booking, null);
@@ -147,9 +147,9 @@ export function createBooking(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       booking.id, kind, booking.checkIn, booking.checkInTime, booking.checkOut, booking.checkOutTime,
-      booking.name, booking.guests, booking.note, cancelCode ? hash(cancelCode) : null, booking.createdAt,
+      booking.name, booking.guests, booking.note, pin ? pinHash(booking.id, pin) : null, booking.createdAt,
     );
-    return { ok: true, booking, cancelCode };
+    return { ok: true, booking, pin };
   });
 }
 
@@ -157,11 +157,18 @@ export type UpdateResult =
   | { ok: true; booking: Booking }
   | { ok: false; error: FieldError | "dates_taken" | "not_found" | "wrong_code"; clash?: Booking };
 
-function checkAuth(row: { cancel_hash: string | null }, auth: { admin: true } | { code: string }): boolean {
+/**
+ * Admins always pass. Otherwise the guest's PIN must match; bookings made
+ * before PINs existed keep working with their 6-character code.
+ */
+function checkAuth(row: { id: string; cancel_hash: string | null }, auth: { admin: true } | { code: string }): boolean {
   if ("admin" in auth) return true;
-  const given = Buffer.from(hash(auth.code.trim().toUpperCase()));
   const stored = Buffer.from(row.cancel_hash ?? "");
-  return given.length === stored.length && timingSafeEqual(given, stored);
+  const given = auth.code.trim();
+  return [pinHash(row.id, given), hash(given.toUpperCase())].some((candidate) => {
+    const c = Buffer.from(candidate);
+    return c.length === stored.length && timingSafeEqual(c, stored);
+  });
 }
 
 /**
@@ -216,8 +223,8 @@ export function cancelBooking(
   auth: { admin: true } | { code: string },
 ): "cancelled" | "not_found" | "wrong_code" {
   const row = db
-    .prepare("SELECT cancel_hash FROM bookings WHERE id = ?")
-    .get(id) as { cancel_hash: string | null } | undefined;
+    .prepare("SELECT id, cancel_hash FROM bookings WHERE id = ?")
+    .get(id) as { id: string; cancel_hash: string | null } | undefined;
   if (!row) return "not_found";
   if (!checkAuth(row, auth)) return "wrong_code";
   db.prepare("DELETE FROM bookings WHERE id = ?").run(id);
