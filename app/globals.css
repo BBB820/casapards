@@ -327,6 +327,14 @@ input:disabled { opacity: 0.6; }
   background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--ink);
 }
 
+a.primary, a.pill-btn { display: inline-block; text-decoration: none; text-align: center; }
+.backup-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.backup-list li { display: flex; gap: 10px; align-items: baseline; }
+.backup-list li > span:nth-child(2) { white-space: nowrap; }
+.backup-list li a { margin-left: auto; color: var(--pine); font-weight: 600; }
+.restore-confirm { display: grid; gap: 6px; padding: 10px; border-radius: 10px; background: var(--sel-soft); width: 100%; }
+.backups-card details summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+
 .login { max-width: 420px; padding-top: 12vh; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -95,8 +95,18 @@ Good fits:
 - **Any small VPS or home server**: `npm ci && npm run build && npm start`
   behind a reverse proxy with HTTPS.
 
-Back up by copying the `.db` file while the app is stopped, or with
-`sqlite3 casapards.db ".backup backup.db"` while it runs.
+## Backups
+
+- **Daily copies.** Once a day the app saves a copy of every booking to a
+  `backups` folder next to the database (on the Railway volume) and keeps the
+  last 14 days.
+- **Restore.** Signed in as admin, open **Backups → Copies on the server** and
+  tap **Restore** next to a day. The current bookings are saved first (listed
+  as "before restore"), so a restore can be undone the same way.
+- **Keep a copy elsewhere.** The daily copies share the Railway disk, so they
+  don't survive losing the volume. Use **Download backup** (a full copy) now
+  and then, and **Download as spreadsheet** for a list anyone can open in
+  Excel or Google Sheets.
 
 ## Project layout
 
@@ -105,9 +115,11 @@ app/                 pages and API routes (Next.js App Router)
   api/bookings       list and create bookings
   api/bookings/[id]  edit (PATCH) or delete (DELETE) a booking; /verify checks a PIN
   api/session        passcode sign-in and sign-out
+  api/backup         admin backups: list, download (.db / .csv), restore
 components/          calendar, reserve form, stays list, login form
 lib/dates.ts         pure date rules shared by server, UI and tests
 lib/bookings.ts      create, list and cancel bookings in SQLite
+lib/backups.ts       daily copies, restore, spreadsheet export
 lib/db.ts            schema and connection
 lib/auth.ts          passcode sessions (signed cookies)
 test/                node:test unit tests
