@@ -11,22 +11,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f5f9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f1018" },
+    { media: "(prefers-color-scheme: light)", color: "#1f3a2b" },
+    { media: "(prefers-color-scheme: dark)", color: "#12281e" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-        />
-      </head>
       <body>{children}</body>
     </html>
   );
