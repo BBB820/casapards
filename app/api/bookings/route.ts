@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentRole } from "@/lib/auth.ts";
 import { createBooking, listBookings } from "@/lib/bookings.ts";
 import { STAY_ERROR_TEXT, type StayError } from "@/lib/dates.ts";
-import { getDb } from "@/lib/db.ts";
+import { getDb, storageProblem } from "@/lib/db.ts";
 import { houseToday } from "@/lib/house.ts";
 
 const ERROR_TEXT: Record<string, string> = {
@@ -25,6 +25,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const role = await currentRole();
   if (!role) return unauthorized();
+  const problem = storageProblem();
+  if (problem) return NextResponse.json({ error: problem, code: "no_storage" }, { status: 503 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Send the booking as JSON." }, { status: 400 });

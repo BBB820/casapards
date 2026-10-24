@@ -81,6 +81,19 @@ export function databasePath(env: Record<string, string | undefined> = process.e
   return "data/casapards.db";
 }
 
+/**
+ * On Railway, a service without a Volume keeps files only until the next
+ * deploy, so every update would wipe all bookings. Returns a message when
+ * that's the case, so the app can stop taking bookings instead of losing them.
+ */
+export function storageProblem(env: Record<string, string | undefined> = process.env): string | null {
+  const onRailway = Boolean(env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID || env.RAILWAY_SERVICE_ID);
+  const persistent = Boolean(env.DATABASE_PATH || env.RAILWAY_VOLUME_MOUNT_PATH);
+  return onRailway && !persistent
+    ? "Bookings are paused: this site isn't saving to permanent storage yet, so they would be wiped on the next update. The admin needs to add a Volume at /data to the service in Railway."
+    : null;
+}
+
 export function getDb(): DatabaseSync {
   if (!globalForDb.casapardsDb) {
     const path = databasePath();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { databasePath, getDb } from "@/lib/db.ts";
+import { databasePath, getDb, storageProblem } from "@/lib/db.ts";
 import { houseTimeZone } from "@/lib/house.ts";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +21,8 @@ export async function GET() {
         "On Railway, attach a volume to this service.",
     );
   }
-  const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
-  const persistent = Boolean(process.env.DATABASE_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH);
-  if (onRailway && !persistent) {
-    problems.push("No volume is attached, so bookings will be lost on the next deploy. Add a volume at /data.");
-  }
+  const storage = storageProblem();
+  if (storage) problems.push(storage);
   if (!houseTimeZone.valid) {
     problems.push("HOUSE_TIMEZONE isn't a valid time zone (use e.g. America/Los_Angeles); using the server's zone.");
   }

@@ -322,6 +322,11 @@ label { font-weight: 700; font-size: 0.88rem; }
 .edit-card { border-color: var(--sel-edge); box-shadow: 0 0 0 3px var(--sel), var(--shadow); }
 input:disabled { opacity: 0.6; }
 
+.storage-warning {
+  margin: 0; padding: 12px 16px; border-radius: 12px; border-left: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--ink);
+}
+
 .login { max-width: 420px; padding-top: 12vh; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
