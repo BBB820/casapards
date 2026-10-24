@@ -474,6 +474,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
               </ul>
             )}
           </div>
+          {isAdmin && <BackupsCard onRestored={load} />}
         </aside>
       </section>
     </main>
@@ -985,5 +986,89 @@ function EditForm({ booking: b, code, today, onWrongPin, onSaved, onClose }: {
         <button type="button" className="link" onClick={onClose}>Discard</button>
       </div>
     </form>
+  );
+}
+
+type BackupInfo = { name: string; date: string; bytes: number; beforeRestore: boolean };
+
+/** Admin only: daily copies kept on the server, plus downloads to keep elsewhere. */
+function BackupsCard({ onRestored }: { onRestored: () => void }) {
+  const [backups, setBackups] = useState<BackupInfo[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+
+  const refresh = useCallback(() => {
+    fetch("/api/backup?type=list", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setBackups(d.backups))
+      .catch(() => setFailed(true));
+  }, []);
+  useEffect(refresh, [refresh]);
+
+  async function restore(b: BackupInfo) {
+    setMessage("");
+    const res = await fetch(`/api/backup/${b.name}`, { method: "POST" });
+    const data = await res.json();
+    setConfirming(null);
+    if (!res.ok) return setMessage(data.error ?? "Restore failed.");
+    setMessage(`Restored ${data.restored} booking${data.restored === 1 ? "" : "s"} from ${longDate(b.date)}. The bookings from before are saved as "Before restore" in the list, in case you need them back.`);
+    refresh();
+    onRestored();
+  }
+
+  const latest = backups?.find((b) => !b.beforeRestore);
+  const size = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+  return (
+    <div className="card stack backups-card">
+      <div className="row spread">
+        <h2>Backups</h2>
+        <span className="pill admin">Admin</span>
+      </div>
+      <p className="muted small">
+        {failed
+          ? "Couldn't check the backups. Refresh to try again."
+          : backups === null
+            ? "Checking backups…"
+            : latest
+              ? `A copy of every booking is saved automatically each day; the last 14 days are kept. Latest: ${longDate(latest.date)}.`
+              : "A copy of every booking is saved automatically each day. The first one is made a minute after the site starts."}
+      </p>
+      <p className="muted small">Those copies live on the same Railway disk. Download one now and then to keep a copy somewhere else.</p>
+      <div className="row">
+        <a className="primary" href="/api/backup?type=db" download>Download backup</a>
+        <a className="pill-btn" href="/api/backup?type=csv" download>Download as spreadsheet</a>
+      </div>
+      {backups && backups.length > 0 && (
+        <details className="small" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+          <summary>Copies on the server ({backups.length})</summary>
+          <ul className="backup-list">
+            {backups.map((b) => (
+              <li key={b.name}>
+                {confirming === b.name ? (
+                  <span className="restore-confirm">
+                    <span>Replace all bookings with the copy from {longDate(b.date)}? Today's bookings are saved first.</span>
+                    <span className="row">
+                      <button className="danger" onClick={() => restore(b)}>Restore</button>
+                      <button className="link" onClick={() => setConfirming(null)}>Keep current</button>
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    <span>{longDate(b.date)}{b.beforeRestore && <span className="muted"> · before restore</span>}</span>
+                    <span className="muted">{size(b.bytes)}</span>
+                    <a href={`/api/backup/${b.name}`} download>Download</a>
+                    <button className="link" onClick={() => setConfirming(b.name)}>Restore</button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {message && <p className="small" role="status">{message}</p>}
+    </div>
   );
 }

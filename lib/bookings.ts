@@ -74,6 +74,14 @@ export function listBookings(db: DatabaseSync, from: string): Booking[] {
   return rows.map(toBooking);
 }
 
+/** Every booking ever made, past and future, earliest first (for backups and exports). */
+export function listAllBookings(db: DatabaseSync): Booking[] {
+  const rows = db
+    .prepare(`SELECT ${COLUMNS} FROM bookings ORDER BY check_in, check_in_time`)
+    .all() as unknown as Row[];
+  return rows.map(toBooking);
+}
+
 type Fields = Omit<Booking, "id" | "createdAt">;
 type FieldError = StayError | "missing_name" | "bad_guests";
 
