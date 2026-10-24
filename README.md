@@ -17,6 +17,9 @@ leave, and reserve. Two stays can never overlap.
   exact date and time inside a SQLite write transaction, so if two people
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
+- **Weekends and holidays.** Fri–Sun are shaded. New Year, Holy Week (worked
+  out from Easter each year) and Christmas are labelled; add your own with
+  `HOUSE_HOLIDAYS`.
 - **See a stay.** Tap a coloured bar on the calendar to open that stay's
   details (and Edit or delete). On phones, the Calendar and Stays tabs switch
   between the month view and the list of upcoming stays.
@@ -62,6 +65,7 @@ npm run typecheck
 | `DATABASE_PATH`   | SQLite file. Default: the Railway volume, else `data/casapards.db`.  |
 | `HOUSE_TIMEZONE`  | IANA time zone of the house, used for "today", e.g. `Europe/Madrid`. |
 | `HOUSE_NAME`      | Name in the header. Default `Casa Pards`.                            |
+| `HOUSE_HOLIDAYS`  | Extra calendar labels, e.g. `11-01:All Saints; 2026-12-08:Lola's 80th`. `MM-DD` repeats yearly. |
 
 ## Deploying
 

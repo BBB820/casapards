@@ -18,6 +18,10 @@
   --sel-edge: #6c4cf5;
   --today: #f2873a;
   --danger: #d93a2b;
+  --weekend: #f7f5fd;
+  --holiday: #fff4e8;
+  --holiday-ink: #b4520e;
+  --glow: rgb(108 76 245 / 0.10);
   /* Stay colours: saturated bars with white text. */
   --c1: #7b5cfa; --c1-ink: #ffffff;
   --c2: #f59a32; --c2-ink: #ffffff;
@@ -49,6 +53,10 @@
     --sel-edge: #a18cff;
     --today: #ff9a4d;
     --danger: #ff8a7a;
+    --weekend: #1f2034;
+    --holiday: #2b2018;
+    --holiday-ink: #ffb27a;
+    --glow: rgb(161 140 255 / 0.22);
     --c1: #7b5cfa; --c1-ink: #ffffff;
     --c2: #e98b22; --c2-ink: #ffffff;
     --c3: #e5543d; --c3-ink: #ffffff;
@@ -135,6 +143,10 @@ label { font-weight: 700; font-size: 0.88rem; }
 .segmented button { border: 0; background: none; color: var(--ink); border-radius: 999px; padding: 6px; }
 .segmented button[aria-checked="true"] { background: var(--pine); color: var(--pine-ink); font-weight: 700; }
 
+/* Calendar card: a soft accent glow so it lifts off the page, mostly visible in dark mode. */
+.calendar.card { box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 30px 80px -24px var(--glow), var(--shadow); }
+.card h2 { color: var(--ink); }
+
 /* Calendar header */
 .cal-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
 .month-title { font-size: clamp(1.4rem, 3vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; }
@@ -159,9 +171,21 @@ label { font-weight: 700; font-size: 0.88rem; }
   background: var(--surface); color: var(--ink);
 }
 .cell.pad { background: var(--bg); }
+.cell.weekend { background: var(--weekend); }
+.cell.holiday { background: var(--holiday); }
+/* Every day reserves room for a holiday line, so stay bars stay level across the week. */
+.cell-top { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; column-gap: 4px; min-width: 0; min-height: 40px; padding-right: 4px; }
+/* Holiday name on its own line under the day number. */
+.holiday-tag {
+  flex-basis: 100%; min-width: 0; padding-left: 8px; margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.66rem; font-weight: 700; line-height: 1.2; color: var(--holiday-ink);
+}
+.cell-top + .lane { margin-top: 2px; }
 .cell.open:not(.picked):not(.preview):hover { background: var(--pine-soft); }
 .cell.closed { cursor: not-allowed; }
 .cell.past { color: var(--muted); background: var(--bg); }
+.cell.past .cell-top, .cell.past .lane, .cell.past .times-row { opacity: 0.45; }
 .cell.past .num { font-weight: 400; }
 .cell:disabled { opacity: 1; }
 .cell.picked { background: var(--sel); }
@@ -215,7 +239,10 @@ label { font-weight: 700; font-size: 0.88rem; }
 
 .loading .lane, .loading .times-row { visibility: hidden; }
 
-.legend { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); }
+.legend-details { margin-top: 14px; color: var(--muted); }
+.legend-details summary { cursor: pointer; width: fit-content; font-weight: 600; }
+.legend-details summary:hover { color: var(--pine); }
+.legend { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; color: var(--muted); }
 .legend li { display: flex; align-items: center; gap: 7px; }
 .swatch { width: 22px; height: 12px; border-radius: 999px; display: inline-block; }
 .swatch.free { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-strong); }
@@ -223,6 +250,7 @@ label { font-weight: 700; font-size: 0.88rem; }
 .swatch.half { background: linear-gradient(90deg, var(--c4) 0 50%, var(--surface) 50%); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .swatch.blocked { box-shadow: inset 0 0 0 1px var(--line-strong); }
 .swatch.picked { background: var(--sel); box-shadow: inset 3px 0 0 var(--sel-edge); }
+.swatch.weekend { background: linear-gradient(90deg, var(--weekend) 0 50%, var(--holiday) 50%); box-shadow: inset 0 0 0 1px var(--line-strong); }
 
 @media (max-width: 640px) {
   .card { padding: 16px; }
@@ -236,6 +264,9 @@ label { font-weight: 700; font-size: 0.88rem; }
   .seg-label { height: 19px; line-height: 19px; font-size: 0.64rem; left: 4px; width: calc(var(--halves) * 50% - 6px); }
   .seg-label.in { left: calc(50% + 4px); }
   .cell.today::before { top: 28px; left: 12px; }
+  .holiday-tag { flex-basis: auto; padding: 0; margin: 0; font-size: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--holiday-ink); flex: none; }
+  .cell-top { flex-wrap: nowrap; min-height: 22px; }
+  .cell-top + .lane { margin-top: 4px; }
   .times-row { font-size: 0.56rem; padding: 2px 2px 0; letter-spacing: -0.03em; }
   .times-row .word { display: none; }
 }
@@ -257,9 +288,27 @@ label { font-weight: 700; font-size: 0.88rem; }
 .stay-card { border-color: var(--sel-edge); box-shadow: 0 0 0 3px var(--sel), var(--shadow); }
 .seg { cursor: pointer; }
 .stay-main { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-.stay-main > .small { flex-basis: 100%; padding-left: 20px; }
-.stay-actions { padding-left: 20px; }
+.stay-main > .small { flex-basis: 100%; }
 .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center;
+  font-size: 0.75rem; font-weight: 800; letter-spacing: 0.02em; box-shadow: 0 4px 10px -4px var(--glow, transparent);
+}
+.stay-main > .small, .stay-actions { padding-left: 38px; }
+.when { margin-left: auto; font-size: 0.75rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 2px 9px; border-radius: 999px; }
+.when.now { color: var(--pine-ink); background: var(--pine); }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; color: var(--muted); }
+.steps li strong { color: inherit; }
+.step-num {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center;
+  font-weight: 800; font-size: 0.85rem; background: var(--bg); color: var(--muted); border: 1px solid var(--line-strong);
+}
+.steps li.active { color: var(--ink); }
+.steps li.active .step-num { background: var(--pine); color: var(--pine-ink); border-color: transparent; box-shadow: 0 0 0 4px var(--pine-soft); }
+.steps li.done .step-num { background: var(--pine-soft); color: var(--pine); border-color: transparent; }
+.primary.big { width: 100%; padding: 14px 24px; font-size: 1.02rem; box-shadow: 0 10px 24px -10px var(--pine); }
 
 .pill-btn {
   border: 1px solid var(--line-strong); background: var(--surface); color: var(--pine);
