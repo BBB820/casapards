@@ -8,7 +8,7 @@ import {
 import type { Booking } from "@/lib/bookings.ts";
 import { holidaysFor, type ExtraHoliday } from "@/lib/holidays.ts";
 
-type Props = { houseName: string; isAdmin: boolean; canSignOut: boolean; extraHolidays: ExtraHoliday[]; storageWarning: string | null };
+type Props = { houseName: string; tagline: string; isAdmin: boolean; canSignOut: boolean; extraHolidays: ExtraHoliday[]; storageWarning: string | null };
 type Info = DayInfo<Booking> & {
   status: "free" | "booked" | "blocked" | "out" | "in" | "turnover";
   /** Whether any time that day is still free. */
@@ -37,6 +37,11 @@ const shortTime = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
 };
+/** "Oct 24–25", or "Oct 30 – Nov 1" across months. */
+const shortRange = (a: string, b: string) =>
+  a.slice(0, 7) === b.slice(0, 7)
+    ? `${fmt(a, { month: "short", day: "numeric" })}–${Number(b.slice(8))}`
+    : `${fmt(a, { month: "short", day: "numeric" })} – ${fmt(b, { month: "short", day: "numeric" })}`;
 const daysLabel = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 const stayText = (b: Booking) =>
   b.kind === "blocked"
@@ -54,10 +59,44 @@ const countdown = (b: Booking, today: string) => {
   const n = daysBetween(today, b.checkIn);
   return n === 0 ? "Today" : n === 1 ? "Tomorrow" : `in ${n} days`;
 };
+/** The house emblem: a small drawn house on a violet-to-orange tile. */
+function Emblem() {
+  return (
+    <svg className="emblem" viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id="emblem-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#7b5cfa" />
+          <stop offset="1" stopColor="#f59a32" />
+        </linearGradient>
+      </defs>
+      <rect width="48" height="48" rx="14" fill="url(#emblem-bg)" />
+      <circle cx="35" cy="13" r="4" fill="#ffe08a" />
+      <path d="M10 24 L24 12 L38 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 22 V36 H34 V22" fill="#fff" fillOpacity="0.95" />
+      <rect x="21" y="27" width="6" height="9" rx="1.5" fill="#7b5cfa" />
+      <rect x="16.5" y="25" width="3.5" height="3.5" rx="0.8" fill="#f59a32" />
+      <rect x="28" y="25" width="3.5" height="3.5" rx="0.8" fill="#f59a32" />
+    </svg>
+  );
+}
+
+function Brand({ houseName, tagline }: { houseName: string; tagline: string }) {
+  return (
+    <div className="brand">
+      <Emblem />
+      <div>
+        <p className="eyebrow">Family house · reservations</p>
+        <h1>{houseName}</h1>
+        {tagline && <p className="tagline">{tagline}</p>}
+      </div>
+    </div>
+  );
+}
+
 const maxTime = (a: string, b: string) => (a > b ? a : b);
 const minTime = (a: string, b: string) => (a < b ? a : b);
 
-export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolidays, storageWarning }: Props) {
+export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, extraHolidays, storageWarning }: Props) {
   const [today, setToday] = useState(() => todayISO());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -141,10 +180,7 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
     return (
       <main className="shell">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Family house · reservations</p>
-            <h1>{houseName}</h1>
-          </div>
+          <Brand houseName={houseName} tagline={tagline} />
         </header>
         <p className="muted">Loading the calendar…</p>
       </main>
@@ -250,6 +286,28 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
     load();
   }
 
+  /** Show the month containing `iso`. */
+  function goToMonth(iso: string) {
+    const [y, m] = iso.split("-").map(Number);
+    const [ty0, tm0] = today.split("-").map(Number);
+    setMonthOffset(Math.max(0, Math.min(12, (y - ty0) * 12 + (m - tm0))));
+  }
+
+  function showStay(b: Booking) {
+    goToMonth(b.checkIn < today ? today : b.checkIn);
+    openStay(b.id);
+  }
+
+  function bookWeekend() {
+    setEditing(null);
+    setViewingId(null);
+    setConfirmed(null);
+    setHint("");
+    goToMonth(weekendStart);
+    setFirst(weekendStart);
+    setLast(sunday);
+  }
+
   function goPickDates() {
     setTab("calendar");
     requestAnimationFrame(() => {
@@ -281,6 +339,17 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
   const monthIsEmpty = loaded && !bookings.some((b) => b.checkIn <= monthEndIso && b.checkOut >= monthStartIso);
   const maxOffset = 12;
   const upcoming = bookings.filter((b) => b.checkOut >= today);
+  const stays = upcoming.filter((b) => b.kind === "stay");
+  const hereNow = stays.find((b) => b.checkIn <= today);
+  const nextUp = stays.find((b) => b.checkIn > today);
+  // "This weekend": the coming Fri–Sun (or the current one, if today is Fri–Sun).
+  const dow = (new Date(today + "T12:00:00Z").getUTCDay() + 6) % 7; // Mon = 0
+  const friday = addDays(today, 4 - dow);
+  const sunday = addDays(friday, 2);
+  const weekendStart = friday < today ? today : friday;
+  const weekendStay = bookings.find((b) => b.checkIn <= sunday && b.checkOut >= weekendStart && b.kind === "stay");
+  const weekendBlocked = bookings.find((b) => b.checkIn <= sunday && b.checkOut >= weekendStart && b.kind === "blocked");
+  const weekendBookable = loaded && !weekendStay && !weekendBlocked && weekendStart < sunday && canStart(weekendStart) && canSpan(weekendStart, sunday);
   const viewing = viewingId ? bookings.find((b) => b.id === viewingId) ?? null : null;
   const focusId = editing?.id ?? viewing?.id ?? null;
   const panelActive = Boolean(editing || viewing || confirmed);
@@ -311,15 +380,63 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
   return (
     <main className="shell">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Family house · reservations</p>
-          <h1>{houseName}</h1>
-        </div>
+        <Brand houseName={houseName} tagline={tagline} />
         <nav className="topnav">
           {isAdmin && <span className="pill admin">Admin</span>}
           {canSignOut && <button className="link" onClick={signOut}>Sign out</button>}
         </nav>
       </header>
+
+      {loaded && (
+        <section className="glance" aria-label="At a glance">
+          {hereNow ? (
+            <button className="glance-item now" onClick={() => showStay(hereNow)}>
+              <span className="glance-label">Here now</span>
+              <span className="glance-main">{hereNow.name}</span>
+              <span className="glance-sub">until {longDate(hereNow.checkOut)}, {timeText(hereNow.checkOutTime)}</span>
+            </button>
+          ) : nextUp ? (
+            <button className="glance-item" onClick={() => showStay(nextUp)}>
+              <span className="glance-label">Next up</span>
+              <span className="glance-main">{nextUp.name}</span>
+              <span className="glance-sub">
+                {longDate(nextUp.checkIn)}{nextUp.checkOut !== nextUp.checkIn ? ` – ${longDate(nextUp.checkOut)}` : ""} · {countdown(nextUp, today)}
+              </span>
+            </button>
+          ) : (
+            <div className="glance-item">
+              <span className="glance-label">Next up</span>
+              <span className="glance-main">No stays booked yet</span>
+              <span className="glance-sub">The house is all yours. Pick any dates.</span>
+            </div>
+          )}
+          {weekendStay && weekendStay !== hereNow ? (
+            <button className="glance-item" onClick={() => showStay(weekendStay)}>
+              <span className="glance-label">This weekend</span>
+              <span className="glance-main">{weekendStay.name}</span>
+              <span className="glance-sub">{shortRange(friday, sunday)}</span>
+            </button>
+          ) : weekendBookable ? (
+            <button className="glance-item free" onClick={bookWeekend}>
+              <span className="glance-label">This weekend is free</span>
+              <span className="glance-main">{shortRange(weekendStart, sunday)}</span>
+              <span className="glance-sub glance-cta">Book it →</span>
+            </button>
+          ) : hereNow && nextUp ? (
+            <button className="glance-item" onClick={() => showStay(nextUp)}>
+              <span className="glance-label">Next up</span>
+              <span className="glance-main">{nextUp.name}</span>
+              <span className="glance-sub">{shortRange(nextUp.checkIn, nextUp.checkOut)} · {countdown(nextUp, today)}</span>
+            </button>
+          ) : weekendBlocked ? (
+            <div className="glance-item">
+              <span className="glance-label">This weekend</span>
+              <span className="glance-main">Unavailable</span>
+              <span className="glance-sub">{weekendBlocked.name}</span>
+            </div>
+          ) : null}
+        </section>
+      )}
 
       {storageWarning && (
         <p className="storage-warning" role="alert">
@@ -502,12 +619,16 @@ type Segment = { booking: Booking; part: "full" | "out" | "in" | "visit"; halves
  * at the start of each week row or month it continues into. Check-in bars
  * start mid-cell and check-out bars end mid-cell, hence half-cells.
  */
-function segmentsFor(day: string, bookings: Booking[], weekday: number, monthStart: string, monthEnd: string): Segment[] {
+function segmentsFor(day: string, bookings: Booking[], weekday: number, monthStart: string, monthEnd: string, today = ""): Segment[] {
   const segs: Segment[] = [];
   for (const b of bookings) {
     if (day < b.checkIn || day > b.checkOut) continue;
     const part = b.checkIn === b.checkOut ? "visit" : day === b.checkIn ? "in" : day === b.checkOut ? "out" : "full";
-    const startsHere = part === "in" || part === "visit" || ((weekday === 0 || day === monthStart) && (part === "full" || part === "out"));
+    // Names go on a stay's first day, on the first day of each week row or
+    // month it runs into, and on today for a stay already under way (its
+    // earlier days are faded).
+    const startsHere = part === "in" || part === "visit"
+      || ((weekday === 0 || day === monthStart || (day === today && b.checkIn < today)) && (part === "full" || part === "out"));
     let halves = 0;
     if (part === "visit") halves = 2;
     else if (startsHere) {
@@ -553,7 +674,7 @@ function Month(props: {
         const d = info(day);
         const out = day < today || day > lastBookable;
         const inRange = Boolean(first && end && day >= first && day <= end);
-        const segs = segmentsFor(day, bookings, weekday, monthStart, monthEnd);
+        const segs = segmentsFor(day, bookings, weekday, monthStart, monthEnd, today);
         const who = d.full ?? d.outBy ?? d.inFrom;
         const describe =
           out ? "not bookable"
