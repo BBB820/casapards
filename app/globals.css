@@ -1,4 +1,4 @@
-/* Layout: an illustrated hero panel with the house name in huge condensed
+/* Layout: an illustrated beach hero panel with the house name in huge condensed
    letters (left on wide screens, a banner on top on phones) next to a warm
    cream panel holding the calendar, the reserve form and the stays.
    Palette: forest green, terracotta, ochre and cream, dark brown buttons.
@@ -110,7 +110,7 @@ a { color: var(--pine); }
 .page { display: grid; grid-template-columns: minmax(360px, 40%) minmax(0, 1fr); min-height: 100vh; }
 .hero {
   position: sticky; top: 0; height: 100vh; overflow: hidden; color: var(--hero-ink);
-  display: flex; flex-direction: column; justify-content: flex-end; background: #1f3a2b;
+  display: flex; flex-direction: column; justify-content: flex-end; background: #0f3a40;
 }
 .hero-art { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-art-wide { display: none; }
@@ -123,10 +123,10 @@ a { color: var(--pine); }
 .topnav { display: flex; gap: 14px; align-items: center; justify-content: flex-end; }
 
 /* Tablets and phones: the picture becomes a strip on top, with the title
-   and cards below it on deep green, so the letters never cover the house. */
+   and cards below it on deep ocean teal, so the letters never cover the house. */
 @media (max-width: 1099px) {
   .page { grid-template-columns: minmax(0, 1fr); }
-  .hero { position: relative; height: auto; display: block; background: #1f3a2b; }
+  .hero { position: relative; height: auto; display: block; background: #0f3a40; }
   .hero-art-tall { display: none; }
   .hero-art-wide { display: block; position: relative; height: clamp(190px, 40vw, 380px); }
   .hero-content { padding: 24px clamp(16px, 4vw, 48px) 28px; }
@@ -152,7 +152,7 @@ button.glance-item:hover { background: #fffdf8; }
 .glance-sub { font-size: 0.86rem; color: #6b5d51; }
 .glance-item.now { background: #c9502b; color: #fff; }
 .glance-item.now .glance-label, .glance-item.now .glance-sub { color: inherit; opacity: 0.88; }
-.glance-item.free { background: #2f6b4f; color: #fbf3e4; }
+.glance-item.free { background: #1f6f78; color: #fbf3e4; }
 .glance-item.free .glance-label, .glance-item.free .glance-sub { color: inherit; opacity: 0.88; }
 .glance-cta { font-weight: 700; opacity: 1 !important; }
 @media (max-width: 640px) {
