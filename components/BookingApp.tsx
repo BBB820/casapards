@@ -8,7 +8,7 @@ import {
 import type { Booking } from "@/lib/bookings.ts";
 import { holidaysFor, type ExtraHoliday } from "@/lib/holidays.ts";
 
-type Props = { houseName: string; isAdmin: boolean; canSignOut: boolean; extraHolidays: ExtraHoliday[] };
+type Props = { houseName: string; isAdmin: boolean; canSignOut: boolean; extraHolidays: ExtraHoliday[]; storageWarning: string | null };
 type Info = DayInfo<Booking> & {
   status: "free" | "booked" | "blocked" | "out" | "in" | "turnover";
   /** Whether any time that day is still free. */
@@ -57,7 +57,7 @@ const countdown = (b: Booking, today: string) => {
 const maxTime = (a: string, b: string) => (a > b ? a : b);
 const minTime = (a: string, b: string) => (a < b ? a : b);
 
-export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolidays }: Props) {
+export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolidays, storageWarning }: Props) {
   const [today, setToday] = useState(() => todayISO());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -320,6 +320,15 @@ export default function BookingApp({ houseName, isAdmin, canSignOut, extraHolida
           {canSignOut && <button className="link" onClick={signOut}>Sign out</button>}
         </nav>
       </header>
+
+      {storageWarning && (
+        <p className="storage-warning" role="alert">
+          <strong>Bookings are paused.</strong>{" "}
+          {isAdmin
+            ? "This site isn't saving to permanent storage, so every update would wipe the calendar. In Railway, open the casapards service and add a Volume mounted at /data; bookings reopen after it redeploys."
+            : "The calendar is being set up and can't take bookings right now. Please check back soon."}
+        </p>
+      )}
 
       <div className="tabs" role="tablist" aria-label="View">
         <button role="tab" aria-selected={tab === "calendar"} onClick={() => setTab("calendar")}>Calendar</button>

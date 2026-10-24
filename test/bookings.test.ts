@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { databasePath, openDatabase } from "../lib/db.ts";
+import { databasePath, openDatabase, storageProblem } from "../lib/db.ts";
 import { cancelBooking, createBooking, listBookings, updateBooking, verifyPin } from "../lib/bookings.ts";
 
 const today = "2026-10-05";
@@ -175,4 +175,11 @@ test("verifyPin checks a PIN without changing the booking", () => {
   assert.equal(verifyPin(db, r.booking.id, "9999"), "wrong_code");
   assert.equal(verifyPin(db, "missing", "1234"), "not_found");
   assert.equal(listBookings(db, today).length, 1);
+});
+
+test("on Railway without a volume, bookings are paused instead of silently lost", () => {
+  assert.match(storageProblem({ RAILWAY_ENVIRONMENT: "production" }) ?? "", /Volume at \/data/);
+  assert.equal(storageProblem({ RAILWAY_ENVIRONMENT: "production", RAILWAY_VOLUME_MOUNT_PATH: "/data" }), null);
+  assert.equal(storageProblem({ RAILWAY_ENVIRONMENT: "production", DATABASE_PATH: "/data/x.db" }), null);
+  assert.equal(storageProblem({}), null, "local runs are fine");
 });
