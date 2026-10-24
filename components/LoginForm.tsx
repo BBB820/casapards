@@ -25,7 +25,7 @@ export default function LoginForm() {
   }
 
   return (
-    <form className="card stack" onSubmit={submit}>
+    <form className="stack" onSubmit={submit}>
       <label htmlFor="passcode">Passcode</label>
       <input
         id="passcode"

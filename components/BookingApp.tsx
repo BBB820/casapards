@@ -6,6 +6,7 @@ import {
   todayISO, type DayInfo,
 } from "@/lib/dates.ts";
 import type { Booking } from "@/lib/bookings.ts";
+import HeroArt from "./HeroArt.tsx";
 import { holidaysFor, type ExtraHoliday } from "@/lib/holidays.ts";
 
 type Props = { houseName: string; tagline: string; isAdmin: boolean; canSignOut: boolean; extraHolidays: ExtraHoliday[]; storageWarning: string | null };
@@ -59,37 +60,19 @@ const countdown = (b: Booking, today: string) => {
   const n = daysBetween(today, b.checkIn);
   return n === 0 ? "Today" : n === 1 ? "Tomorrow" : `in ${n} days`;
 };
-/** The house emblem: a small drawn house on a violet-to-orange tile. */
-function Emblem() {
+/** Left-hand panel: the illustration with the house name in big letters, plus the at-a-glance cards. */
+function Hero({ houseName, tagline, children }: { houseName: string; tagline: string; children?: React.ReactNode }) {
   return (
-    <svg className="emblem" viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="emblem-bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#7b5cfa" />
-          <stop offset="1" stopColor="#f59a32" />
-        </linearGradient>
-      </defs>
-      <rect width="48" height="48" rx="14" fill="url(#emblem-bg)" />
-      <circle cx="35" cy="13" r="4" fill="#ffe08a" />
-      <path d="M10 24 L24 12 L38 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 22 V36 H34 V22" fill="#fff" fillOpacity="0.95" />
-      <rect x="21" y="27" width="6" height="9" rx="1.5" fill="#7b5cfa" />
-      <rect x="16.5" y="25" width="3.5" height="3.5" rx="0.8" fill="#f59a32" />
-      <rect x="28" y="25" width="3.5" height="3.5" rx="0.8" fill="#f59a32" />
-    </svg>
-  );
-}
-
-function Brand({ houseName, tagline }: { houseName: string; tagline: string }) {
-  return (
-    <div className="brand">
-      <Emblem />
-      <div>
+    <aside className="hero">
+      <HeroArt variant="tall" />
+      <HeroArt variant="wide" />
+      <div className="hero-content">
         <p className="eyebrow">Family house · reservations</p>
-        <h1>{houseName}</h1>
+        <h1 className="hero-title">{houseName}</h1>
         {tagline && <p className="tagline">{tagline}</p>}
+        {children}
       </div>
-    </div>
+    </aside>
   );
 }
 
@@ -178,12 +161,12 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
 
   if (!mounted) {
     return (
-      <main className="shell">
-        <header className="topbar">
-          <Brand houseName={houseName} tagline={tagline} />
-        </header>
-        <p className="muted">Loading the calendar…</p>
-      </main>
+      <div className="page">
+        <Hero houseName={houseName} tagline={tagline} />
+        <main className="content">
+          <p className="muted">Loading the calendar…</p>
+        </main>
+      </div>
     );
   }
 
@@ -378,15 +361,8 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
         : `${longDate(first)}${last !== first ? ` – ${longDate(last)}` : ""} picked.`;
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <Brand houseName={houseName} tagline={tagline} />
-        <nav className="topnav">
-          {isAdmin && <span className="pill admin">Admin</span>}
-          {canSignOut && <button className="link" onClick={signOut}>Sign out</button>}
-        </nav>
-      </header>
-
+    <div className="page">
+      <Hero houseName={houseName} tagline={tagline}>
       {loaded && (
         <section className="glance" aria-label="At a glance">
           {hereNow ? (
@@ -436,6 +412,15 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
             </div>
           ) : null}
         </section>
+      )}
+      </Hero>
+
+      <main className="content">
+      {(isAdmin || canSignOut) && (
+        <nav className="topnav">
+          {isAdmin && <span className="pill admin">Admin</span>}
+          {canSignOut && <button className="link" onClick={signOut}>Sign out</button>}
+        </nav>
       )}
 
       {storageWarning && (
@@ -594,7 +579,8 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
           {isAdmin && <BackupsCard onRestored={load} />}
         </aside>
       </section>
-    </main>
+      </main>
+    </div>
   );
 }
 
