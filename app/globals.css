@@ -134,9 +134,9 @@ a { color: var(--pine); }
   .content { max-width: none; }
 }
 @media (max-width: 640px) {
-  .hero-content { padding: 18px 16px 20px; gap: 8px; }
+  .hero-content { padding: 22px 20px 26px; gap: 12px; }
   .hero-title { font-size: clamp(3rem, 16vw, 4.4rem); }
-  .content { padding: 18px 16px 48px; gap: 16px; }
+  .content { padding: 24px 20px 56px; gap: 22px; }
 }
 
 /* At-a-glance cards inside the hero. */
@@ -156,8 +156,8 @@ button.glance-item:hover { background: #fffdf8; }
 .glance-item.free .glance-label, .glance-item.free .glance-sub { color: inherit; opacity: 0.88; }
 .glance-cta { font-weight: 700; opacity: 1 !important; }
 @media (max-width: 640px) {
-  .glance { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .glance-item { padding: 9px 11px; }
+  .glance { grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+  .glance-item { padding: 12px 14px; gap: 4px; }
   .glance-main { font-size: 1.05rem; }
   .glance-sub { font-size: 0.74rem; }
 }
@@ -309,11 +309,12 @@ label { font-weight: 700; font-size: 0.82rem; }
 .swatch.weekend { background: linear-gradient(90deg, var(--weekend) 0 50%, var(--holiday) 50%); box-shadow: inset 0 0 0 1px var(--line-strong); }
 
 @media (max-width: 640px) {
-  .card { padding: 16px; }
-  .calendar.card { padding: 14px 10px; }
+  .layout, .side { gap: 22px; }
+  .card { padding: 20px 18px; }
+  .calendar.card { padding: 18px 12px; }
   .month-title { font-size: 2rem; }
   .dow { padding: 6px 2px; text-align: center; font-size: 0.66rem; letter-spacing: 0.02em; }
-  .cell { min-height: 68px; padding-top: 4px; }
+  .cell { min-height: 78px; padding-top: 6px; }
   .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 0.95rem; padding: 0 4px; }
   .lane { height: 19px; margin-top: 4px; }
   .seg-label { height: 19px; line-height: 19px; font-size: 0.62rem; left: 4px; width: calc(var(--halves) * 50% - 6px); }
