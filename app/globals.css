@@ -98,6 +98,32 @@ a { color: var(--pine); }
 
 .topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
 .topnav { display: flex; gap: 14px; align-items: center; }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.emblem { width: 60px; height: 60px; flex: none; border-radius: 16px; box-shadow: 0 10px 24px -10px rgb(123 92 250 / 0.6); }
+.tagline { color: var(--muted); margin-top: 2px; }
+
+/* At-a-glance strip: who's next and whether this weekend is free. */
+.glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.glance-item {
+  display: grid; gap: 2px; text-align: left; padding: 14px 18px; border-radius: 16px; min-width: 0;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink); font: inherit;
+}
+button.glance-item:hover { border-color: var(--sel-edge); }
+.glance-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.glance-main { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance-sub { font-size: 0.88rem; color: var(--muted); }
+.glance-item.now { background: var(--pine); border-color: transparent; color: var(--pine-ink); }
+.glance-item.now .glance-label, .glance-item.now .glance-sub { color: inherit; opacity: 0.85; }
+.glance-item.free { background: var(--sel-soft); border-color: var(--sel); }
+.glance-cta { color: var(--pine); font-weight: 700; }
+@media (max-width: 640px) {
+  .emblem { width: 48px; height: 48px; border-radius: 13px; }
+  .brand { gap: 12px; }
+  .glance { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .glance-item { padding: 10px 12px; border-radius: 14px; }
+  .glance-main { font-size: 0.95rem; }
+  .glance-sub { font-size: 0.78rem; }
+}
 
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 24px; align-items: start; }
 .side { display: grid; gap: 20px; min-width: 0; }

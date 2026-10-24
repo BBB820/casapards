@@ -65,6 +65,7 @@ npm run typecheck
 | `DATABASE_PATH`   | SQLite file. Default: the Railway volume, else `data/casapards.db`.  |
 | `HOUSE_TIMEZONE`  | IANA time zone of the house, used for "today", e.g. `Europe/Madrid`. |
 | `HOUSE_NAME`      | Name in the header. Default `Casa Pards`.                            |
+| `HOUSE_TAGLINE`   | Optional line under the name, e.g. `Our family's place by the sea`.  |
 | `HOUSE_HOLIDAYS`  | Extra calendar labels, e.g. `11-01:All Saints; 2026-12-08:Lola's 80th`. `MM-DD` repeats yearly. |
 
 ## Deploying
