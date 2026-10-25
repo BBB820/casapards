@@ -124,8 +124,30 @@ a { color: var(--pine); }
 /* ---------- Content layout ---------- */
 .layout { display: grid; gap: 28px; min-width: 0; }
 .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; align-items: start; min-width: 0; }
-.panel { display: grid; min-width: 0; scroll-margin-top: 80px; }
-.panel:empty { display: none; }
+
+/* Overlay for the booking form, stay details, edits and confirmations:
+   a centred box on wide screens, a sheet sliding up from the bottom on phones. */
+.overlay {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px;
+  background: rgb(18 16 13 / 0.42); backdrop-filter: blur(2px); animation: fade-in 0.18s ease-out;
+}
+.sheet { position: relative; width: min(500px, 100%); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; animation: rise 0.22s ease-out; }
+.sheet > .card { border: 0; box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.45); }
+.sheet-close {
+  position: absolute; top: 14px; right: 14px; z-index: 1; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 1.25rem; line-height: 1;
+}
+.sheet-close:hover { background: var(--pine-soft); }
+.sheet h2 { padding-right: 44px; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+@media (max-width: 640px) {
+  .overlay { place-items: end stretch; padding: 0; }
+  .sheet { width: 100%; max-height: 90dvh; animation: slide-up 0.26s ease-out; }
+  .sheet > .card { border-radius: 16px 16px 0 0; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .sheet::before { content: ""; position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--line-strong); z-index: 1; }
+}
+@keyframes slide-up { from { transform: translateY(100%); } }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; min-width: 0; box-shadow: var(--shadow); }
 .card h2 { color: var(--ink); }
@@ -142,7 +164,6 @@ a { color: var(--pine); }
   .tabs button[aria-selected="true"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
   .layout[data-tab="calendar"] .stays-card { display: none; }
   .layout[data-tab="stays"] .calendar { display: none; }
-  .layout[data-tab="stays"] .panel:not(.active) { display: none; }
 }
 
 /* ---------- Controls ---------- */
@@ -334,4 +355,4 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 .content.login { max-width: 460px; align-content: center; min-height: 60vh; }
 @media (min-width: 1100px) { .content.login { min-height: 100vh; padding-top: 0; padding-bottom: 0; } }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
