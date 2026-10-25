@@ -86,10 +86,10 @@ export function validateStay(s: Partial<Record<keyof Stay, unknown>>, today: str
 }
 
 export const STAY_ERROR_TEXT: Record<StayError, string> = {
-  invalid_date: "Pick the day you arrive and the day you leave.",
-  invalid_time: "Pick an arrival and a leaving time.",
+  invalid_date: "Pick the day you're arriving and the day you're leaving.",
+  invalid_time: "Pick an arriving and a leaving time.",
   checkout_before_checkin: "Leaving has to be after arriving.",
-  in_the_past: "That arrival day has already passed.",
+  in_the_past: "That arriving day has already passed.",
   too_far_ahead: `Bookings open ${MAX_DAYS_AHEAD} days ahead.`,
   too_long: `Stays can be up to ${MAX_DAYS} days.`,
 };

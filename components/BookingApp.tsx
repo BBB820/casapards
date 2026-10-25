@@ -316,9 +316,9 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
   const instruction = !loaded
     ? "Checking which days are free…"
     : !first
-      ? (monthIsEmpty && monthEndIso >= today ? `${monthName} is wide open. Tap a day to claim it.` : "Tap the day you arrive.")
+      ? (monthIsEmpty && monthEndIso >= today ? `${monthName} is wide open. Tap a day to claim it.` : "Tap the day you're arriving.")
       : !last
-        ? "Now tap the day you leave. Tap the same day again for a day visit."
+        ? "Now tap the day you're leaving. Tap the same day again for a day visit."
         : `${longDate(first)}${last !== first ? ` – ${longDate(last)}` : ""} picked.`;
 
   return (
@@ -396,7 +396,7 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
           </div>
 
           <p className="muted small house-times">
-            Arrive from {timeText(DEFAULT_CHECK_IN)}, leave by {timeText(DEFAULT_CHECK_OUT)}. You can pick other times.
+            Arriving from {timeText(DEFAULT_CHECK_IN)}, leaving by {timeText(DEFAULT_CHECK_OUT)}. You can pick other times.
           </p>
           <details className="legend-details small">
             <summary>How to read the calendar</summary>
@@ -664,10 +664,10 @@ function ReserveForm(props: {
     setError("");
     if (mode === "stay") {
       if (inTime < earliestIn) {
-        return setError(`${firstInfo.outBy?.name ?? "The previous stay"} leaves at ${timeText(earliestIn)}. Arrive at that time or later.`);
+        return setError(`${firstInfo.outBy?.name ?? "The previous stay"} is leaving at ${timeText(earliestIn)}. You can arrive from then.`);
       }
       if (outTime > latestOut) {
-        return setError(`${lastInfo.inFrom?.name ?? "The next stay"} arrives at ${timeText(lastInfo.freeUntil)}. Leave by then.`);
+        return setError(`${lastInfo.inFrom?.name ?? "The next stay"} is arriving at ${timeText(lastInfo.freeUntil)}. You need to leave by then.`);
       }
       if (sameDay && outTime <= inTime) return setError("Leaving has to be after arriving.");
       if (!/^\d{4}$/.test(pin)) return setError("Choose a 4-digit PIN (numbers only).");
@@ -699,8 +699,8 @@ function ReserveForm(props: {
     <form className="card stack" onSubmit={submit}>
       <h2>{mode === "stay" ? (sameDay ? "Reserve a day visit" : "Reserve these dates") : "Block these dates"}</h2>
       <div className="summary">
-        <div><span className="label">Arrive</span><strong>{longDate(first)}</strong></div>
-        <div><span className="label">Leave</span><strong>{longDate(last)}</strong></div>
+        <div><span className="label">Arriving</span><strong>{longDate(first)}</strong></div>
+        <div><span className="label">Leaving</span><strong>{longDate(last)}</strong></div>
         <div><span className="label">Length</span><strong>{daysLabel(days)}</strong></div>
       </div>
 
@@ -725,11 +725,11 @@ function ReserveForm(props: {
           )}
           <div className="times">
             <div className="stack-tight">
-              <label htmlFor="in-time">Arrival time</label>
+              <label htmlFor="in-time">Arriving at</label>
               <input id="in-time" type="time" value={inTime} min={earliestIn} onChange={(e) => setInTime(e.target.value)} required />
             </div>
             <div className="stack-tight">
-              <label htmlFor="out-time">Leaving time</label>
+              <label htmlFor="out-time">Leaving at</label>
               <input id="out-time" type="time" value={outTime} max={latestOut} onChange={(e) => setOutTime(e.target.value)} required />
             </div>
           </div>
@@ -939,28 +939,28 @@ function EditForm({ booking: b, code, today, onWrongPin, onSaved, onClose }: {
       <p className="muted small">{blocked ? "Change the dates or reason." : "Change the dates, times or details. Everyone sees the update right away."}</p>
       <div className="times">
         <div className="stack-tight">
-          <label htmlFor="edit-in">Arrival day</label>
+          <label htmlFor="edit-in">Arriving</label>
           <input id="edit-in" type="date" value={checkIn} min={started ? undefined : today} disabled={started}
             onChange={(e) => setCheckIn(e.target.value)} required />
         </div>
         {!blocked && (
           <div className="stack-tight">
-            <label htmlFor="edit-in-time">Arrival time</label>
+            <label htmlFor="edit-in-time">Arriving at</label>
             <input id="edit-in-time" type="time" value={checkInTime} disabled={started} onChange={(e) => setCheckInTime(e.target.value)} required />
           </div>
         )}
         <div className="stack-tight">
-          <label htmlFor="edit-out">Leaving day</label>
+          <label htmlFor="edit-out">Leaving</label>
           <input id="edit-out" type="date" value={checkOut} min={checkIn} onChange={(e) => setCheckOut(e.target.value)} required />
         </div>
         {!blocked && (
           <div className="stack-tight">
-            <label htmlFor="edit-out-time">Leaving time</label>
+            <label htmlFor="edit-out-time">Leaving at</label>
             <input id="edit-out-time" type="time" value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} required />
           </div>
         )}
       </div>
-      {started && <p className="muted small">This stay has already started, so only when you leave can change.</p>}
+      {started && <p className="muted small">This stay has already started, so only the leaving day and time can change.</p>}
       <label htmlFor="edit-name">{blocked ? "Reason (shown to family)" : "Name the stay is under"}</label>
       <input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
       {!blocked && (
