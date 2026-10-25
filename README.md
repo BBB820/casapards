@@ -17,9 +17,13 @@ leave, and reserve. Two stays can never overlap.
   exact date and time inside a SQLite write transaction, so if two people
   reserve overlapping times at the same moment, one succeeds and the other is
   told who they clash with.
-- **Weekends and holidays.** Fri–Sun are shaded. New Year, Holy Week (worked
-  out from Easter each year) and Christmas are labelled; add your own with
-  `HOUSE_HOLIDAYS`.
+- **Weekends and holidays.** Fri–Sun are shaded. Philippine national
+  holidays are labelled: New Year, Chinese New Year, EDSA Day, Holy Week
+  (worked out from Easter each year), Araw ng Kagitingan, Labor Day,
+  Independence Day, Ninoy Aquino Day, National Heroes Day, All Saints' and
+  All Souls' Day, Bonifacio Day, Immaculate Conception, Christmas Eve,
+  Christmas, Rizal Day and New Year's Eve. Eid holidays are proclaimed each
+  year; add them and your own dates with `HOUSE_HOLIDAYS`.
 - **See a stay.** Tap a coloured bar on the calendar to open that stay's
   details (and Edit or delete). On phones, the Calendar and Stays tabs switch
   between the month view and the list of upcoming stays.
