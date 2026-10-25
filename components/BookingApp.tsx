@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addDays, dayInfo, daysBetween, DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT, MAX_DAYS, MAX_DAYS_AHEAD, monthGrid,
   todayISO, type DayInfo,
@@ -91,14 +91,6 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
   const [viewingId, setViewingId] = useState<string | null>(null);
   // Phone-only tabs; on wider screens both sides show at once.
   const [tab, setTab] = useState<"calendar" | "stays">("calendar");
-  const panelRef = useRef<HTMLDivElement>(null);
-  // On phones the panel sits below the calendar: bring it into view when a
-  // stay is opened or an edit starts.
-  useEffect(() => {
-    if ((viewingId || editing) && window.matchMedia("(max-width: 960px)").matches) {
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [viewingId, editing]);
   // Dates and month names depend on the browser's locale and time zone, so
   // render the calendar only in the browser to avoid hydration mismatches.
   const [mounted, setMounted] = useState(false);
@@ -152,6 +144,29 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
     }
     return hit;
   }, [bookings, infoCache]);
+
+  // While the overlay is open: Escape closes it and the page behind doesn't scroll.
+  const overlayOpen = Boolean(
+    editing || confirmed || (first && last) || (viewingId && bookings.some((b) => b.id === viewingId)),
+  );
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setEditing(null);
+      setViewingId(null);
+      setConfirmed(null);
+      setFirst(null);
+      setLast(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [overlayOpen]);
 
   if (!mounted) {
     return (
@@ -296,7 +311,14 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
   const upcoming = bookings.filter((b) => b.checkOut >= today);
   const viewing = viewingId ? bookings.find((b) => b.id === viewingId) ?? null : null;
   const focusId = editing?.id ?? viewing?.id ?? null;
-  const panelActive = Boolean(editing || viewing || confirmed);
+  // The booking form, stay details, edit form and confirmation open in an
+  // overlay: a centred box on wide screens, a sheet from the bottom on phones.
+  const closeOverlay = () => {
+    setEditing(null);
+    setViewingId(null);
+    setConfirmed(null);
+    clearSelection();
+  };
   const stayRow = (b: Booking) => (
     <StayRow
       key={b.id}
@@ -412,41 +434,6 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
         </div>
 
         <aside className="side">
-          <div ref={panelRef} className={`panel${panelActive ? " active" : ""}`}>
-          {editing ? (
-            <EditForm
-              key={editing.id}
-              booking={editing}
-              code={codes[editing.id] ?? ""}
-              today={today}
-              onWrongPin={() => lock(editing.id)}
-              onSaved={onEdited}
-              onClose={() => setEditing(null)}
-            />
-          ) : viewing ? (
-            <div className="card stack stay-card">
-              <div className="row spread">
-                <h2>{viewing.kind === "blocked" ? "Unavailable" : "Stay details"}</h2>
-                <button className="link small" onClick={() => setViewingId(null)}>Close</button>
-              </div>
-              <ul className="stays">{stayRow(viewing)}</ul>
-            </div>
-          ) : confirmed ? (
-            <Confirmation {...confirmed} onDone={() => setConfirmed(null)} />
-          ) : first && last ? (
-            <ReserveForm
-              key={`${first}-${last}`}
-              first={first}
-              last={last}
-              firstInfo={info(first)}
-              lastInfo={info(last)}
-              isAdmin={isAdmin}
-              onBooked={onBooked}
-              onClear={clearSelection}
-              onConflict={load}
-            />
-          ) : null}
-          </div>
 
           <div className="card stack stays-card">
             <h2>Upcoming stays</h2>
@@ -464,6 +451,43 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
         </aside>
       </section>
       </main>
+      {overlayOpen && (
+        <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) closeOverlay(); }}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Booking">
+            <button className="sheet-close" onClick={closeOverlay} aria-label="Close">×</button>
+            {editing ? (
+              <EditForm
+                key={editing.id}
+                booking={editing}
+                code={codes[editing.id] ?? ""}
+                today={today}
+                onWrongPin={() => lock(editing.id)}
+                onSaved={onEdited}
+                onClose={() => setEditing(null)}
+              />
+            ) : viewing ? (
+              <div className="card stack stay-card">
+                <h2>{viewing.kind === "blocked" ? "Unavailable" : "Stay details"}</h2>
+                <ul className="stays">{stayRow(viewing)}</ul>
+              </div>
+            ) : confirmed ? (
+              <Confirmation {...confirmed} onDone={() => setConfirmed(null)} />
+            ) : first && last ? (
+              <ReserveForm
+                key={`${first}-${last}`}
+                first={first}
+                last={last}
+                firstInfo={info(first)}
+                lastInfo={info(last)}
+                isAdmin={isAdmin}
+                onBooked={onBooked}
+                onClear={clearSelection}
+                onConflict={load}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
