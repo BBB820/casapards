@@ -1,9 +1,9 @@
 /* Layout: an illustrated beach hero panel with the house name in a large
    serif (left on wide screens, a slim banner on top on phones) next to a calm
-   sand-coloured panel holding the calendar, the reserve form and the stays.
+   clean white panel holding the calendar, the reserve form and the stays.
    Style: "quiet luxury" in the manner of resort sites like Aman: an elegant
    serif for headings, small widely spaced capitals for labels, hairline
-   rules, no heavy boxes or shadows, warm sand and deep ink with one sunset
+   rules, no heavy boxes or shadows, white and deep ink with one sunset
    accent. Each family's stay is a soft, muted bar. */
 
 @font-face {
@@ -29,8 +29,8 @@
 }
 
 :root {
-  --bg: #f4efe7;
-  --surface: #fbf9f5;
+  --bg: #ffffff;
+  --surface: #ffffff;
   --ink: #221d18;
   --muted: #8b8075;
   --line: #e6dfd4;
@@ -38,14 +38,14 @@
   /* Primary (deep ink) — variable names kept from the first palette. */
   --pine: #221d18;
   --pine-ink: #fbf9f5;
-  --pine-soft: #efe9df;
+  --pine-soft: #f4f0ea;
   --accent: #b0623f;
   --sel: #e3e8dc;
   --sel-soft: #eef1e8;
   --sel-edge: #5f7a63;
   --today: #b0623f;
   --danger: #a2412b;
-  --weekend: #f7f3ec;
+  --weekend: #faf7f2;
   --holiday: #f5eadb;
   --holiday-ink: #95562b;
   --glow: rgb(34 29 24 / 0.06);
@@ -224,7 +224,7 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
   border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
   background: var(--surface); color: var(--ink);
 }
-.cell.pad { background: var(--bg); }
+.cell.pad { background: var(--weekend); }
 .cell.weekend { background: var(--weekend); }
 .cell.holiday { background: var(--holiday); }
 /* Every day reserves room for a holiday line, so stay bars stay level across the week. */
@@ -288,7 +288,8 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 .times-row .in-time { margin-left: auto; }
 .loading .lane, .loading .times-row { visibility: hidden; }
 
-.legend-details { margin-top: 14px; color: var(--muted); }
+.house-times { margin-top: 14px; }
+.legend-details { margin-top: 10px; color: var(--muted); }
 .legend-details summary { cursor: pointer; width: fit-content; font-weight: 600; font-size: 0.64rem; }
 .legend-details summary:hover { color: var(--ink); }
 .legend { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; color: var(--muted); }
