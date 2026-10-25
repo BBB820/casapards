@@ -94,7 +94,7 @@ p { margin: 0; }
 a { color: var(--pine); }
 
 /* Condensed uppercase labels, like the reference's form labels. */
-.eyebrow, label, .label, .dow, .glance-label, .legend-details summary, .tabs button, .primary, .pill-btn, .chip, .pill, .when, .segmented button, .danger {
+.eyebrow, label, .label, .dow, .legend-details summary, .tabs button, .primary, .pill-btn, .chip, .pill, .when, .segmented button, .danger {
   font-family: var(--font-body); font-stretch: 78%; text-transform: uppercase; letter-spacing: 0.04em;
 }
 .eyebrow { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
@@ -139,31 +139,6 @@ a { color: var(--pine); }
   .hero-content .eyebrow { font-size: 0.6rem; }
   .hero-title { font-size: 1.5rem; }
   .content { padding: 24px 20px 56px; gap: 22px; }
-}
-
-/* At-a-glance cards inside the hero. */
-.glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
-.glance-item {
-  display: grid; gap: 2px; text-align: left; padding: 12px 16px; border-radius: var(--radius); min-width: 0;
-  background: rgb(251 247 240 / 0.94); border: 0; color: #2b211b; font: inherit;
-  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.5);
-}
-button.glance-item:hover { background: #fffdf8; }
-.glance-label { font-size: 0.72rem; font-weight: 700; color: #7a6c5f; }
-.glance-main { font-family: var(--font-display); font-size: 1.45rem; line-height: 1.05; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.glance-sub { font-size: 0.86rem; color: #6b5d51; }
-.glance-item.now { background: #c9502b; color: #fff; }
-.glance-item.now .glance-label, .glance-item.now .glance-sub { color: inherit; opacity: 0.88; }
-.glance-item.free { background: #1f6f78; color: #fbf3e4; }
-.glance-item.free .glance-label, .glance-item.free .glance-sub { color: inherit; opacity: 0.88; }
-.glance-cta { font-weight: 700; opacity: 1 !important; }
-@media (max-width: 640px) {
-  /* One slim line per card: label, name, dates. */
-  .glance { grid-template-columns: 1fr; gap: 6px; margin-top: 2px; }
-  .glance-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; box-shadow: none; }
-  .glance-label { font-size: 0.6rem; flex: none; }
-  .glance-main { font-size: 0.8rem; flex: none; max-width: 45%; }
-  .glance-sub { font-size: 0.66rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* ---------- Content layout ---------- */
