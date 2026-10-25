@@ -49,13 +49,13 @@
   /* Weekends and holidays: a faint neutral off-white, no beige. */
   --weekend: #f8f8f6;
   --holiday: #f8f8f6;
-  --holiday-ink: #95562b;
+  --holiday-ink: #a67c12; /* holiday gold: labels and the phone dot */
   --glow: rgb(34 29 24 / 0.06);
   --hero-ink: #f6efe3;
   --hero-bg: #12302f;
-  /* Stay colours: two, alternating (sunset terracotta and deep sea green). */
-  --c1: #b5653f; --c1-ink: #ffffff;
-  --c2: #2f5753; --c2-ink: #ffffff;
+  /* Stay colours: two, alternating (ocean blue and olive green). */
+  --c1: #3d6a88; --c1-ink: #ffffff;
+  --c2: #5f7650; --c2-ink: #ffffff;
   --blocked: #e2e2de; --blocked-ink: #5f5f5a;
   --font-display: "Cormorant Garamond", Garamond, "Times New Roman", serif;
   --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
