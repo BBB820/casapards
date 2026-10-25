@@ -270,14 +270,7 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
     setMonthOffset(Math.max(0, Math.min(12, (y - ty0) * 12 + (m - tm0))));
   }
 
-  function goPickDates() {
-    setTab("calendar");
-    requestAnimationFrame(() => {
-      const grid = document.querySelector<HTMLElement>(".month-grid");
-      grid?.scrollIntoView({ behavior: "smooth", block: "center" });
-      document.querySelector<HTMLButtonElement>(".month-grid .cell.open")?.focus({ preventScroll: true });
-    });
-  }
+
 
   function openStay(id: string) {
     setEditing(null);
@@ -449,36 +442,7 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
               onClear={clearSelection}
               onConflict={load}
             />
-          ) : (
-            <div className="card stack reserve-card">
-              <h2>Reserve a stay</h2>
-              <ol className="steps">
-                <li className={!first ? "active" : "done"}>
-                  <span className="step-num">1</span>
-                  <span><strong>Tap your check-in day</strong>{first ? ` · ${longDate(first)}` : ""}</span>
-                </li>
-                <li className={first ? "active" : ""}>
-                  <span className="step-num">2</span>
-                  <span><strong>Tap your check-out day</strong> (same day again for a day visit)</span>
-                </li>
-                <li>
-                  <span className="step-num">3</span>
-                  <span><strong>Add your name and a PIN</strong>, then reserve</span>
-                </li>
-              </ol>
-              <p className="muted small">
-                Check-in from {timeText(DEFAULT_CHECK_IN)}, check-out by {timeText(DEFAULT_CHECK_OUT)}. You can pick other times.
-              </p>
-              {first ? (
-                <div className="row">
-                  <button className="primary" onClick={() => pick(first)}>Day visit on {longDate(first)}</button>
-                  <button className="link" onClick={clearSelection}>Start over</button>
-                </div>
-              ) : (
-                <button className="primary big" onClick={goPickDates}>Pick your dates</button>
-              )}
-            </div>
-          )}
+          ) : null}
           </div>
 
           <div className="card stack stays-card">

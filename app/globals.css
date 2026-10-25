@@ -239,7 +239,7 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 .cell.closed { cursor: not-allowed; }
 .cell.past { color: var(--muted); background: var(--bg); }
 .cell.past .cell-top, .cell.past .lane, .cell.past .times-row { opacity: 0.45; }
-.cell.past .num { font-weight: 400; }
+.cell.past .num { font-weight: 500; }
 .cell:disabled { opacity: 1; }
 .cell.picked { background: var(--sel); }
 .cell.preview { background: var(--sel-soft); }
@@ -249,9 +249,9 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 
 .num {
   align-self: flex-start; margin-left: 6px; min-width: 28px; height: 28px; padding: 0 4px; border-radius: 999px;
-  display: inline-grid; place-items: center; font-family: var(--font-display); font-size: 1.3rem; font-weight: 500; font-variant-numeric: lining-nums tabular-nums;
+  display: inline-grid; place-items: center; font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums;
 }
-.cell.past .num { font-weight: 400; }
+.cell.past .num { font-weight: 500; }
 .cell.today .num { background: var(--today); color: #fff; }
 .cell.today::before { content: ""; position: absolute; top: 38px; bottom: 0; left: 19px; width: 2px; background: var(--today); opacity: 0.5; }
 
@@ -310,7 +310,7 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
   .cal-nav .chip { padding: 8px 11px; }
   .dow { padding: 8px 2px; text-align: center; font-size: 0.56rem; letter-spacing: 0.08em; }
   .cell { min-height: 78px; padding-top: 6px; }
-  .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 1.05rem; padding: 0 3px; }
+  .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 1.1rem; padding: 0 3px; }
   .lane { height: 18px; margin-top: 4px; }
   .seg-label { height: 18px; line-height: 18px; font-size: 0.54rem; letter-spacing: 0.06em; left: 5px; width: calc(var(--halves) * 50% - 8px); }
   .seg-label.in { left: calc(50% + 4px); }
@@ -334,16 +334,6 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 .code-input { width: 7.5em; text-transform: uppercase; padding: 6px 10px; }
 .pin-input { width: 8em; font-size: 1.3rem; letter-spacing: 0.4em; font-variant-numeric: tabular-nums; text-align: center; }
 
-.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.steps li { display: flex; gap: 12px; align-items: flex-start; color: var(--muted); }
-.steps li strong { color: inherit; }
-.step-num {
-  flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center;
-  font-size: 0.78rem; font-weight: 600; background: transparent; border: 1px solid var(--line-strong); color: var(--muted);
-}
-.steps li.active { color: var(--ink); }
-.steps li.active .step-num { background: var(--accent); border-color: var(--accent); color: #fff; }
-.steps li.done .step-num { border-color: var(--sel-edge); color: var(--sel-edge); }
 
 .stays { list-style: none; padding: 0; margin: 0; display: grid; }
 .stay { display: grid; gap: 6px; padding: 18px 0; border-top: 1px solid var(--line); }
