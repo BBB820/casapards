@@ -4,7 +4,8 @@
    Style: "quiet luxury" in the manner of resort sites like Aman: an elegant
    serif for headings, small widely spaced capitals for labels, hairline
    rules, no heavy boxes or shadows, white and deep ink with one sunset
-   accent. Each family's stay is a soft, muted bar. */
+   accent. Each family's stay is a soft, muted bar. Always light (white),
+   even when the phone or browser is in dark mode. */
 
 @font-face {
   font-family: "Cormorant Garamond";
@@ -64,38 +65,6 @@
   --shadow: none;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141615;
-    --surface: #1b1e1c;
-    --ink: #ede6da;
-    --muted: #9d9387;
-    --line: #2a2e2b;
-    --line-strong: #3a3f3b;
-    --pine: #ede6da;
-    --pine-ink: #1b1e1c;
-    --pine-soft: #242825;
-    --accent: #d38360;
-    --sel: #263229;
-    --sel-soft: #1f2822;
-    --sel-edge: #8fb595;
-    --today: #d38360;
-    --danger: #e98a72;
-    --weekend: #1e2220;
-    --holiday: #2e261d;
-    --holiday-ink: #e0a876;
-    --glow: rgb(0 0 0 / 0.3);
-    --hero-bg: #0e2524;
-    --c1: #b8735a; --c1-ink: #ffffff;
-    --c2: #6f8c75; --c2-ink: #ffffff;
-    --c3: #a8875a; --c3-ink: #ffffff;
-    --c4: #5f838e; --c4-ink: #ffffff;
-    --c5: #8f6f83; --c5-ink: #ffffff;
-    --blocked: #2f3430; --blocked-ink: #bdb3a5;
-    color-scheme: dark;
-  }
-}
-
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; }
@@ -312,9 +281,9 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
   .dow { padding: 8px 2px; text-align: center; font-size: 0.56rem; letter-spacing: 0.08em; }
   .cell { min-height: 78px; padding-top: 6px; }
   .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 1.1rem; padding: 0 3px; }
-  .lane { height: 18px; margin-top: 4px; }
-  .seg-label { height: 18px; line-height: 18px; font-size: 0.54rem; letter-spacing: 0.06em; left: 5px; width: calc(var(--halves) * 50% - 8px); }
-  .seg-label.in { left: calc(50% + 4px); }
+  .lane { height: 20px; margin-top: 4px; }
+  .seg-label { height: 20px; line-height: 20px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em; left: 4px; width: calc(var(--halves) * 50% - 6px); }
+  .seg-label.in { left: calc(50% + 3px); }
   .cell.today::before { top: 28px; left: 12px; }
   .holiday-tag { flex-basis: auto; padding: 0; margin: 0; font-size: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--holiday-ink); flex: none; }
   .cell-top { flex-wrap: nowrap; min-height: 22px; }
