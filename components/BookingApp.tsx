@@ -493,14 +493,14 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
 }
 
 /**
- * Colour per booking (c1–c5), handed out in date order so stays next to
- * each other always differ. Blocked dates are always striped grey.
+ * Colour per booking (c1 or c2, alternating), handed out in date order so
+ * stays next to each other always differ. Blocked dates are always striped grey.
  */
 function colorMap(bookings: Booking[]): Map<string, string> {
   const map = new Map<string, string>();
   let i = 0;
   for (const b of [...bookings].sort((x, y) => (x.checkIn + x.checkInTime < y.checkIn + y.checkInTime ? -1 : 1))) {
-    map.set(b.id, b.kind === "blocked" ? "blocked" : `c${(i++ % 5) + 1}`);
+    map.set(b.id, b.kind === "blocked" ? "blocked" : `c${(i++ % 2) + 1}`);
   }
   return map;
 }
@@ -794,8 +794,8 @@ function ReserveForm(props: {
       )}
 
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="row">
-        <button className="primary" disabled={busy}>{busy ? "Saving…" : mode === "stay" ? "Reserve" : "Block dates"}</button>
+      <div className="form-actions">
+        <button className="primary big" disabled={busy}>{busy ? "Saving…" : mode === "stay" ? "Reserve" : "Block dates"}</button>
         <button type="button" className="link" onClick={onClear}>Change dates</button>
       </div>
     </form>
@@ -996,8 +996,8 @@ function EditForm({ booking: b, code, today, onWrongPin, onSaved, onClose }: {
         </>
       )}
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="row">
-        <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+      <div className="form-actions">
+        <button className="primary big" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
         <button type="button" className="link" onClick={onClose}>Discard</button>
       </div>
     </form>
