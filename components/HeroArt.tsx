@@ -56,8 +56,8 @@ export default function HeroArt({ variant = "tall" }: { variant?: "tall" | "wide
           <stop offset="1" stopColor="#1f6f78" />
         </linearGradient>
         <linearGradient id={id("fade")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.5" stopColor="#0f3a40" stopOpacity="0" />
-          <stop offset="1" stopColor="#0c3036" stopOpacity="0.93" />
+          <stop offset="0.5" stopColor="#12302f" stopOpacity="0" />
+          <stop offset="1" stopColor="#0e2524" stopOpacity="0.93" />
         </linearGradient>
       </defs>
 
