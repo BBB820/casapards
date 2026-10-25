@@ -236,7 +236,7 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
 
 .num {
   align-self: flex-start; margin-left: 6px; min-width: 28px; height: 28px; padding: 0 4px; border-radius: 999px;
-  display: inline-grid; place-items: center; font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums;
+  display: inline-grid; place-items: center; font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums;
 }
 .cell.past .num { font-weight: 500; }
 .cell.today .num { background: var(--today); color: #fff; }
@@ -295,7 +295,7 @@ label { font-weight: 600; font-size: 0.66rem; color: var(--muted); }
   .cal-nav .chip { padding: 8px 11px; }
   .dow { padding: 8px 2px; text-align: center; font-size: 0.56rem; letter-spacing: 0.08em; }
   .cell { min-height: 78px; padding-top: 6px; }
-  .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 0.95rem; padding: 0 3px; }
+  .num { margin-left: 2px; min-width: 22px; height: 22px; font-size: 0.82rem; padding: 0 3px; }
   .lane { height: 20px; margin-top: 4px; }
   .seg-label { height: 20px; line-height: 20px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em; left: 4px; width: calc(var(--halves) * 50% - 6px); }
   .seg-label.in { left: calc(50% + 3px); }
