@@ -135,9 +135,9 @@ a { color: var(--pine); }
 }
 @media (max-width: 640px) {
   .hero-art-wide { height: 120px; }
-  .hero-content { padding: 12px 20px 14px; gap: 6px; }
-  .hero-content .eyebrow { font-size: 0.62rem; }
-  .hero-title { font-size: clamp(1.8rem, 8.5vw, 2.2rem); }
+  .hero-content { padding: 10px 20px 12px; gap: 6px; }
+  .hero-content .eyebrow { font-size: 0.6rem; }
+  .hero-title { font-size: 1.5rem; }
   .content { padding: 24px 20px 56px; gap: 22px; }
 }
 
@@ -158,11 +158,12 @@ button.glance-item:hover { background: #fffdf8; }
 .glance-item.free .glance-label, .glance-item.free .glance-sub { color: inherit; opacity: 0.88; }
 .glance-cta { font-weight: 700; opacity: 1 !important; }
 @media (max-width: 640px) {
-  .glance { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
-  .glance-item { padding: 7px 10px; gap: 1px; box-shadow: none; }
-  .glance-label { font-size: 0.6rem; }
-  .glance-main { font-size: 0.85rem; }
-  .glance-sub { font-size: 0.66rem; }
+  /* One slim line per card: label, name, dates. */
+  .glance { grid-template-columns: 1fr; gap: 6px; margin-top: 2px; }
+  .glance-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; box-shadow: none; }
+  .glance-label { font-size: 0.6rem; flex: none; }
+  .glance-main { font-size: 0.8rem; flex: none; max-width: 45%; }
+  .glance-sub { font-size: 0.66rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* ---------- Content layout ---------- */
