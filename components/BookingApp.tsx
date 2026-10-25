@@ -38,11 +38,6 @@ const shortTime = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
 };
-/** "Oct 24–25", or "Oct 30 – Nov 1" across months. */
-const shortRange = (a: string, b: string) =>
-  a.slice(0, 7) === b.slice(0, 7)
-    ? `${fmt(a, { month: "short", day: "numeric" })}–${Number(b.slice(8))}`
-    : `${fmt(a, { month: "short", day: "numeric" })} – ${fmt(b, { month: "short", day: "numeric" })}`;
 const daysLabel = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 const stayText = (b: Booking) =>
   b.kind === "blocked"
@@ -60,8 +55,8 @@ const countdown = (b: Booking, today: string) => {
   const n = daysBetween(today, b.checkIn);
   return n === 0 ? "Today" : n === 1 ? "Tomorrow" : `in ${n} days`;
 };
-/** Left-hand panel: the illustration with the house name in big letters, plus the at-a-glance cards. */
-function Hero({ houseName, tagline, children }: { houseName: string; tagline: string; children?: React.ReactNode }) {
+/** Left-hand panel: the illustration with the house name in big letters. */
+function Hero({ houseName, tagline }: { houseName: string; tagline: string }) {
   return (
     <aside className="hero">
       <HeroArt variant="tall" />
@@ -70,7 +65,6 @@ function Hero({ houseName, tagline, children }: { houseName: string; tagline: st
         <p className="eyebrow">Family house · reservations</p>
         <h1 className="hero-title">{houseName}</h1>
         {tagline && <p className="tagline">{tagline}</p>}
-        {children}
       </div>
     </aside>
   );
@@ -276,21 +270,6 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
     setMonthOffset(Math.max(0, Math.min(12, (y - ty0) * 12 + (m - tm0))));
   }
 
-  function showStay(b: Booking) {
-    goToMonth(b.checkIn < today ? today : b.checkIn);
-    openStay(b.id);
-  }
-
-  function bookWeekend() {
-    setEditing(null);
-    setViewingId(null);
-    setConfirmed(null);
-    setHint("");
-    goToMonth(weekendStart);
-    setFirst(weekendStart);
-    setLast(sunday);
-  }
-
   function goPickDates() {
     setTab("calendar");
     requestAnimationFrame(() => {
@@ -322,17 +301,6 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
   const monthIsEmpty = loaded && !bookings.some((b) => b.checkIn <= monthEndIso && b.checkOut >= monthStartIso);
   const maxOffset = 12;
   const upcoming = bookings.filter((b) => b.checkOut >= today);
-  const stays = upcoming.filter((b) => b.kind === "stay");
-  const hereNow = stays.find((b) => b.checkIn <= today);
-  const nextUp = stays.find((b) => b.checkIn > today);
-  // "This weekend": the coming Fri–Sun (or the current one, if today is Fri–Sun).
-  const dow = (new Date(today + "T12:00:00Z").getUTCDay() + 6) % 7; // Mon = 0
-  const friday = addDays(today, 4 - dow);
-  const sunday = addDays(friday, 2);
-  const weekendStart = friday < today ? today : friday;
-  const weekendStay = bookings.find((b) => b.checkIn <= sunday && b.checkOut >= weekendStart && b.kind === "stay");
-  const weekendBlocked = bookings.find((b) => b.checkIn <= sunday && b.checkOut >= weekendStart && b.kind === "blocked");
-  const weekendBookable = loaded && !weekendStay && !weekendBlocked && weekendStart < sunday && canStart(weekendStart) && canSpan(weekendStart, sunday);
   const viewing = viewingId ? bookings.find((b) => b.id === viewingId) ?? null : null;
   const focusId = editing?.id ?? viewing?.id ?? null;
   const panelActive = Boolean(editing || viewing || confirmed);
@@ -362,58 +330,7 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
 
   return (
     <div className="page">
-      <Hero houseName={houseName} tagline={tagline}>
-      {loaded && (
-        <section className="glance" aria-label="At a glance">
-          {hereNow ? (
-            <button className="glance-item now" onClick={() => showStay(hereNow)}>
-              <span className="glance-label">Here now</span>
-              <span className="glance-main">{hereNow.name}</span>
-              <span className="glance-sub">until {longDate(hereNow.checkOut)}, {timeText(hereNow.checkOutTime)}</span>
-            </button>
-          ) : nextUp ? (
-            <button className="glance-item" onClick={() => showStay(nextUp)}>
-              <span className="glance-label">Next up</span>
-              <span className="glance-main">{nextUp.name}</span>
-              <span className="glance-sub">
-                {longDate(nextUp.checkIn)}{nextUp.checkOut !== nextUp.checkIn ? ` – ${longDate(nextUp.checkOut)}` : ""} · {countdown(nextUp, today)}
-              </span>
-            </button>
-          ) : (
-            <div className="glance-item">
-              <span className="glance-label">Next up</span>
-              <span className="glance-main">No stays booked yet</span>
-              <span className="glance-sub">The house is all yours. Pick any dates.</span>
-            </div>
-          )}
-          {weekendStay && weekendStay !== hereNow ? (
-            <button className="glance-item" onClick={() => showStay(weekendStay)}>
-              <span className="glance-label">This weekend</span>
-              <span className="glance-main">{weekendStay.name}</span>
-              <span className="glance-sub">{shortRange(friday, sunday)}</span>
-            </button>
-          ) : weekendBookable ? (
-            <button className="glance-item free" onClick={bookWeekend}>
-              <span className="glance-label">This weekend is free</span>
-              <span className="glance-main">{shortRange(weekendStart, sunday)}</span>
-              <span className="glance-sub glance-cta">Book it →</span>
-            </button>
-          ) : hereNow && nextUp ? (
-            <button className="glance-item" onClick={() => showStay(nextUp)}>
-              <span className="glance-label">Next up</span>
-              <span className="glance-main">{nextUp.name}</span>
-              <span className="glance-sub">{shortRange(nextUp.checkIn, nextUp.checkOut)} · {countdown(nextUp, today)}</span>
-            </button>
-          ) : weekendBlocked ? (
-            <div className="glance-item">
-              <span className="glance-label">This weekend</span>
-              <span className="glance-main">Unavailable</span>
-              <span className="glance-sub">{weekendBlocked.name}</span>
-            </div>
-          ) : null}
-        </section>
-      )}
-      </Hero>
+      <Hero houseName={houseName} tagline={tagline} />
 
       <main className="content">
       {(isAdmin || canSignOut) && (
