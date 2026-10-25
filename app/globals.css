@@ -134,8 +134,9 @@ a { color: var(--pine); }
   .content { max-width: none; }
 }
 @media (max-width: 640px) {
-  .hero-content { padding: 22px 20px 26px; gap: 12px; }
-  .hero-title { font-size: clamp(3rem, 16vw, 4.4rem); }
+  .hero-art-wide { height: clamp(140px, 36vw, 190px); }
+  .hero-content { padding: 16px 20px 20px; gap: 8px; }
+  .hero-title { font-size: clamp(2.3rem, 11vw, 3rem); }
   .content { padding: 24px 20px 56px; gap: 22px; }
 }
 
@@ -156,10 +157,11 @@ button.glance-item:hover { background: #fffdf8; }
 .glance-item.free .glance-label, .glance-item.free .glance-sub { color: inherit; opacity: 0.88; }
 .glance-cta { font-weight: 700; opacity: 1 !important; }
 @media (max-width: 640px) {
-  .glance { grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
-  .glance-item { padding: 12px 14px; gap: 4px; }
-  .glance-main { font-size: 1.05rem; }
-  .glance-sub { font-size: 0.74rem; }
+  .glance { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .glance-item { padding: 9px 12px; gap: 2px; }
+  .glance-label { font-size: 0.64rem; }
+  .glance-main { font-size: 0.95rem; }
+  .glance-sub { font-size: 0.7rem; }
 }
 
 /* ---------- Content layout ---------- */
