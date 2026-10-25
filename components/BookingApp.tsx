@@ -417,6 +417,16 @@ export default function BookingApp({ houseName, tagline, isAdmin, canSignOut, ex
             />
           </div>
 
+          {(() => {
+            const inMonth = [...holidays].filter(([d]) => d >= monthStartIso && d <= monthEndIso).sort();
+            return inMonth.length > 0 && (
+              <ul className="month-holidays" aria-label="Holidays this month">
+                {inMonth.map(([d, name]) => (
+                  <li key={d}><span className="hol-dot" /><strong>{fmt(d, { month: "short", day: "numeric" })}</strong> {name}</li>
+                ))}
+              </ul>
+            );
+          })()}
           <p className="muted small house-times">
             Arriving from {timeText(DEFAULT_CHECK_IN)}, leaving by {timeText(DEFAULT_CHECK_OUT)}. You can pick other times.
           </p>
@@ -569,6 +579,11 @@ function Month(props: {
         const out = day < today || day > lastBookable;
         const inRange = Boolean(first && end && day >= first && day <= end);
         const segs = segmentsFor(day, bookings, weekday, monthStart, monthEnd, today);
+        const selTag = !inRange ? null
+          : day === first && day === end ? (last ? "Day visit" : "Start")
+          : day === first ? "Start"
+          : day === end ? "End"
+          : null;
         const who = d.full ?? d.outBy ?? d.inFrom;
         const describe =
           out ? "not bookable"
@@ -608,6 +623,7 @@ function Month(props: {
             aria-pressed={inRange}
             title={out ? undefined : describe}
           >
+            {selTag && <span className="sel-tag">{selTag}</span>}
             <span className="cell-top">
               <span className="num">{Number(day.slice(8))}</span>
               {holidays.has(day) && <span className="holiday-tag" title={holidays.get(day)}>{holidays.get(day)}</span>}
